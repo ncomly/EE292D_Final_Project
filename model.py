@@ -7,6 +7,7 @@ from depthwise import *
 from keras.layers import Dense, ReLU
 from keras.layers import Conv1D, Conv2D, Conv3D, ZeroPadding3D
 from keras.layers import BatchNormalization, AveragePooling2D, MaxPool1D
+from keras.models import Model
 
 def LipRes(alpha=2, reduction=1, num_classes=256):
     block = lambda in_planes, planes, stride: \
@@ -15,7 +16,7 @@ def LipRes(alpha=2, reduction=1, num_classes=256):
     return ResNet(block, [alpha]*4, num_classes=num_classes) # TODO tunable alpha param + # alpha blocks
 
 
-def ResNet(keras.Model):
+def ResNet(Model):
     def __init__(self, block, num_blocks, reduction=1, num_classes=256):
         super(ResNet, self).__init__()
         self.reduction = float(reduction) ** 0.5
@@ -64,7 +65,7 @@ def ResNet(keras.Model):
         x = self.fc(x)
         x = self.bnfc(x)
 
-class LipNext(Keras.Model):
+class LipNext(Model):
     def __init__(self, inputDim=256, hiddenDim=512, nClasses=500, frameLen=29, alpha=2):
         super(LipNext, self).__init__()
 
@@ -96,7 +97,7 @@ class LipNext(Keras.Model):
                 BatchNormalization(momentum=0.1, epsilon=1e-5),
                 ReLU(),
                 MaxPool1D(2,2),
-                Conv1D(4*self.inputDim, kernel_size=5, stride=2, use_bias=False, kernel_initializer=initializer)
+                Conv1D(4*self.inputDim, kernel_size=5, stride=2, use_bias=False, kernel_initializer=initializer),
                 BatchNormalization(momentum=0.1, epsilon=1e-5),
                 ReLU()
             )

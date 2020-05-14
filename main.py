@@ -26,11 +26,11 @@ from ignite.metrics import Accuracy, Loss, TopKCategoricalAccuracy
 
 from tqdm import tqdm
 
-#from utils import *
+# from utils import *
 from model import *
 from dataset import *
-#from lr_scheduler import *
-#from cvtransforms import *
+# from lr_scheduler import *
+# from cvtransforms import *
 
 
 print("Process Number: ",os.getpid())
@@ -38,6 +38,7 @@ print("Process Number: ",os.getpid())
 SEED = 1
 torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)
+
 tf.random.set_seed(SEED)
 np.random.seed(SEED)
 
@@ -82,24 +83,27 @@ def showLR(optimizer):
 
 
 def run(args, use_gpu=True):
-    print("0")
+    
     # saving
     save_path = os.path.join(os.getcwd(),'models')
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
-    print("1")
+
     model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
     model = reload_model(model, args.path).to(device)
-    print("2")
+
     dset_loaders, dset_sizes = data_loader(args)
-    print("3")
+    
     train_loader = dset_loaders['train']
     val_loader = dset_loaders['test']
 
     train_size = dset_sizes['train']
     val_size = dset_sizes['val']
-    print(model.parameters())
-    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.)
+    
+    # print(model.parameters()) - add to optimizer TO DO 
+    optimizer = tf.keras.optimizers.Adam(learning_rate=args.lr,
+                                         decay=0.)
+    # optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.)
     scheduler = AdjustLR(optimizer, [args.lr], sleep_epochs=5, half=5, verbose=1)
     # TQDM
     desc = "ITERATION - loss: {:.2f}"
@@ -174,13 +178,12 @@ def run(args, use_gpu=True):
     pbar.close()
 
 def main():
-    print("hello")
     # Settings
-    #args = parse_args()
+    args = parse_args()
 
     #use_gpu = torch.cuda.is_available()
-    #use_gpu = False
-    #run(args,use_gpu)
+    use_gpu = False
+    run(args,use_gpu)
 
 if __name__ == '__main__':
     main()

@@ -42,9 +42,10 @@ torch.cuda.manual_seed(SEED)
 tf.random.set_seed(SEED)
 np.random.seed(SEED)
 
-use_gpu = True
+use_gpu = False
 
 if torch.cuda.is_available():
+    print("Available")
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
 torch.cuda.set_device(1)

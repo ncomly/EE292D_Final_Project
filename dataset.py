@@ -5,7 +5,7 @@ import time
 import cv2
 import tensorflow as tf
 
-from cvtransforms import *
+# from cvtransforms import *
 
 
 def load_file(filename):

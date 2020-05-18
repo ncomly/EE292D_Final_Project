@@ -1,4 +1,9 @@
-
+import numpy as np
+import tensorflow as tf
+import keras
+from model import *
+from dataset import *
+from utils import *
 
 
 class Dataset(object):
@@ -23,7 +28,7 @@ class Dataset(object):
             np.random.shuffle(idxs)
         return iter((self.X[i:i+B], self.y[i:i+B]) for i in range(0, N, B))
 
-def train_part34(model_init_fn, optimizer_init_fn, num_epochs=1, is_training=False):
+def train_part34(train_dset, val_dset, model_init_fn, optimizer_init_fn, num_epochs=1, is_training=False):
     """
     Simple training loop for use with models defined using tf.keras. It trains
     a model for one epoch on the CIFAR-10 training set and periodically checks
@@ -93,3 +98,27 @@ def train_part34(model_init_fn, optimizer_init_fn, num_epochs=1, is_training=Fal
                                              val_loss.result(),
                                              val_accuracy.result()*100))
                     t += 1
+
+
+
+
+def main():
+    args = parse_args()
+    # load dataset
+    dsets = {x: tf.data.Dataset.list_files(args.dataset + "*/" + x + '/') for x in ['train', 'val', 'test']}
+
+
+    dsets = {x: LRW(x, args.dataset) for x in ['train', 'val', 'test']}
+    print(dsets['train'].list[0])
+
+    # create Datasets
+    train_dset = Dataset(X_train, y_train, batch_size=64, shuffle=True)
+    val_dset = Dataset(X_val, y_val, batch_size=64, shuffle=True)
+    test_dset = Dataset(X_test, y_test, batch_size=64)
+    # train
+    train_part34(train_dset, val_dset, LipNext, tf.keras.optimizers.Adam(0.0003), num_epochs=50, is_training=True)
+
+
+if __name__ == "__main__":
+    # execute only if run as a script
+    main()

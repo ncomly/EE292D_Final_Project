@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import os
 import tqdm
-
+  
 mp4_path = 'lipread_mp4/'
 npy_path = 'lipread_npy_small/'
 
@@ -14,14 +14,14 @@ def ConvertToNPY(data_dir):
         word_path = data_dir+npy_path + word + '/'
         if not(os.path.isdir(word_path)):
             os.mkdir(word_path)
-            for dset in ['train/', 'test/', 'val/']:
-                dset_folder = data_dir + mp4_path + word + '/' + dset
-                out_folder = data_dir+npy_path + word + '/' + dset
-                if not(out_folder):
-                    os.mkdir(out_folder)
-                for f in os.listdir(dset_folder):
-                    if (f.endswith('.mp4')) & (not (os.ispath(out_folder + f.replace('.mp4', '.npy')))):
-                        Save(Convert(dset_folder, f, True), dset_folder, f)
+        for dset in ['train/', 'test/', 'val/']:
+            dset_folder = data_dir + mp4_path + word + '/' + dset
+            out_folder = data_dir+npy_path + word + '/' + dset
+            if not(os.path.isdir(out_folder)):
+                os.mkdir(out_folder)
+            for f in os.listdir(dset_folder):
+                if (f.endswith('.mp4')) & (not (os.path.exists(out_folder + f.replace('.mp4', '.npy')))):
+                    Save(Convert(dset_folder, f, True), dset_folder, f)
 
 
 def Save(data, path, file):

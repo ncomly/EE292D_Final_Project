@@ -52,7 +52,7 @@ def Convert(path, file, small = True):
 
     # centercrop
     # return buf
-    return CenterCrop(buf, (96,96))[:, ::2, ::2, :]
+    return CenterCrop(buf, (96,96))[:, ::2, ::2]
     
 
 # assumes in format (f, h, w, c)

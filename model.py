@@ -9,20 +9,21 @@ from keras.layers import Conv1D, Conv2D, Conv3D, ZeroPadding3D
 from keras.layers import BatchNormalization, AveragePooling2D, MaxPool1D
 from keras.models import Model
 
+import tensorflow as tf
+
 def LipRes(alpha=2, reduction=1, num_classes=256):
     block = lambda in_planes, planes, stride: \
         LipResBlock(in_planes, planes, stride, reduction=reduction)
 
-    return ResNet(block, [alpha]*4, num_classes=num_classes) # TODO tunable alpha param + # alpha blocks
+    return ResNet(block, [alpha, alpha, alpha, alpha], reduction, num_classes) # TODO tunable alpha param + # alpha blocks
 
-
-def ResNet(Model):
+class ResNet(Model):
     def __init__(self, block, num_blocks, reduction=1, num_classes=256):
         super(ResNet, self).__init__()
+
         self.reduction = float(reduction) ** 0.5
         self.num_classes = num_classes
         self.in_planes = 64 #int(16 / self.reduction)
-
 
         self.layer1   = self._make_layer(block, self.in_planes, num_blocks[0], stride=1)
         self.layer2   = self._make_layer(block, 128, num_blocks[1], stride=2)
@@ -49,7 +50,7 @@ def ResNet(Model):
         for stride in strides:
             layers.append(block(self.in_planes, planes, stride))
             self.in_planes = planes
-        return Sequential(*layers)
+        return Sequential(layers)
 
 
     def call(self, x):
@@ -78,21 +79,21 @@ class LipNext(Model):
         self.nLayers = 2
         self.alpha = alpha
         # frontend3D
-        self.frontend3D = Sequential (  
+        self.frontend3D = Sequential ( [
                 ZeroPadding3D(padding=(1,1,1)), # double check channel placement
-                Conv3D(64, kernel_size=(3,3,3), stride=(1,2,2), use_bias=False, kernel_initializer=initializer),
+                Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer),
                 BatchNormalization(momentum=.1, epsilon=1e-5), # should this be .9 instead?
                 ReLU(), # check in place?
                 # group convolution - TODO: THIS IS NOT RIGHT
                 ZeroPadding3D(padding=(1,1,1)), # double check channel placement
-                Conv3D(64, kernel_size=(3,3,3), stride=(1,2,2), use_bias=False, kernel_initializer=initializer),
+                Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer),
                 ZeroPadding3D(padding=(1,0,0)), # double check channel placement
-                Conv3D(64, kernel_size=(3,1,1), stride=(1,1,1), use_bias=False, kernel_initializer=initializer)
-            )
+                Conv3D(64, kernel_size=(3,1,1), strides=(1,1,1), use_bias=False, kernel_initializer=initializer)
+            ] )
         # resnet
         self.resnet34 = LipRes(self.alpha)
         # backend
-        self.backend_conv1 = Sequential (   
+        self.backend_conv1 = Sequential ( [  
                 Conv1D(2*self.inputDim, kernel_size=5, stride=2, use_bias=False, kernel_initializer=initializer),
                 BatchNormalization(momentum=0.1, epsilon=1e-5),
                 ReLU(),
@@ -100,14 +101,14 @@ class LipNext(Model):
                 Conv1D(4*self.inputDim, kernel_size=5, stride=2, use_bias=False, kernel_initializer=initializer),
                 BatchNormalization(momentum=0.1, epsilon=1e-5),
                 ReLU()
-            )
+            ] )
 
-        self.backend_conv2 = Sequential (
+        self.backend_conv2 = Sequential ( [
                 Dense(self.inputDim),
                 BatchNormalization(momentum=0.1, epsilon=1e-5),
                 ReLU(),
                 Dense(self.nClasses)
-            )
+            ] )
 
         # now ignored due to initializer
         # self._initialize_weights()

@@ -32,7 +32,7 @@ class LRW():
 
 
         for i, x in enumerate(self.data_files):
-            target = x.split('\\')[-3] # changed from '/' for windows...
+            target = x.split('/')[-3]
             for j, elem in enumerate(self.data_dir):
                 if elem == target:
                     self.list[i] = [x]
@@ -42,13 +42,18 @@ class LRW():
 
     def __getitem__(self, idx):
 
+        print("__getitem__")
         inputs = load_file(self.list[idx][0])       
         labels = self.list[idx][1]
+
+        print("idx: ", idx)
+        print(inputs)
+        print()
+        print(labels)
         return inputs, labels
 
     def __len__(self):
         return len(self.data_files)
-
 
 def prepare_train_batch(batch, device=None, non_blocking=False):
     inputs, targets = batch

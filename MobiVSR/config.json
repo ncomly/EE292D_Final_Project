@@ -2,6 +2,7 @@
     "nClasses": 500,
     "path": "",
     "dataset": "/mnt/disks/data/dataset/lipread_npy/",
+    "labels": "label_sorted.txt",
     "lr": 0.0003,
     "batch_size": 16,
     "workers": 4,

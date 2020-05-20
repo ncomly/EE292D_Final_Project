@@ -11,7 +11,7 @@ import keras
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Conv2D, MaxPooling2D
-import tensorflow as tf
+# import tensorflow as tf
 
 import torch
 import torch.nn as nn
@@ -29,8 +29,8 @@ from tqdm import tqdm
 from utils import *
 from model import *
 from dataset import *
-from lr_scheduler import *
-from cvtransforms import *
+# from lr_scheduler import *
+# from cvtransforms import *
 
 
 print("Process Number: ",os.getpid())
@@ -54,6 +54,16 @@ device = torch.device("cpu")
 
 def data_loader(args):
     dsets = {x: LRW(x, args.dataset) for x in ['train', 'val', 'test']}
+
+    '''train_examples
+    train_labels
+    val_examples
+    val_labels
+    test_examples
+    test_labels'''
+    
+
+
     dset_loaders = {x: torch.utils.data.DataLoader(dsets[x], batch_size=args.batch_size,\
                        shuffle=True, num_workers=args.workers, pin_memory=use_gpu) \
                        for x in ['train', 'val', 'test']}
@@ -102,14 +112,15 @@ def run(args, use_gpu=True):
     train_size = dset_sizes['train']
     val_size = dset_sizes['val']
     
+    print(dset_loaders)
     # print(model.parameters()) - add to optimizer TO DO 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=args.lr,
-                                         decay=0.)
-    # optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.)
-    scheduler = AdjustLR(optimizer, [args.lr], sleep_epochs=5, half=5, verbose=1)
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=args.lr,
+    #                                     decay=0.)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.)
+    # scheduler = AdjustLR(optimizer, [args.lr], sleep_epochs=5, half=5, verbose=1)
     # TQDM
     desc = "ITERATION - loss: {:.2f}"
-    pbar = tqdm(initial=0, leave=False, total=len(train_loader), desc=desc.format(0))
+    # pbar = tqdm(initial=0, leave=False, total=len(train_loader), desc=desc.format(0))
 
     # Ignite trainer
     trainer = create_supervised_trainer(model, optimizer, F.cross_entropy, \

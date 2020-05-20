@@ -3,6 +3,8 @@ import keras
 from keras.models import Sequential
 from keras.layers import Conv2D, BatchNormalization, DepthwiseConv2D
 
+import tensorflow as tf
+
 class LipResBlock(keras.Model):
     def __init__ (self, in_planes, out_planes, stride=1, reduction=1):
         super(LipResBlock, self).__init__()
@@ -20,12 +22,12 @@ class LipResBlock(keras.Model):
         self.depth = DepthwiseConv2D (kernel_size=3, use_bias=False, kernel_initializer=initializer)
         self.bn2   = BatchNormalization (momentum=0.1, epsilon=1e-5)
 
-        self.conv3 = Conv2D (out_planes, kernel_size=1, use_bias=False, stride=(stride,stride), kernel_initializer=initializer)
+        self.conv3 = Conv2D (out_planes, kernel_size=1, use_bias=False, strides=(stride,stride), kernel_initializer=initializer)
         self.bn3   = BatchNormalization (momentum=0.1, epsilon=1e-5)
 
         self.shortcut = Sequential()
         if stride != 1 or in_planes != out_planes:
-            self.shortcut = Conv2d(out_planes, kernel_size=1, stride=stride, use_bias=False, kernel_initializer=initializer)
+            self.shortcut = Conv2D(out_planes, kernel_size=1, stride=stride, use_bias=False, kernel_initializer=initializer)
 
     def call(self, x):
         out = keras.activations.relu(self.bn1(self.conv1(x)))

@@ -11,7 +11,7 @@ import keras
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Conv2D, MaxPooling2D
-# import tensorflow as tf
+import tensorflow as tf
 
 import torch
 import torch.nn as nn
@@ -19,7 +19,6 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torchvision import datasets
 from torchsummary import summary
-
 
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss, TopKCategoricalAccuracy
@@ -53,7 +52,7 @@ use_gpu = False
 device = torch.device("cpu")
 
 def data_loader(args):
-    dsets = {x: LRW(x, args.dataset) for x in ['train', 'val', 'test']}
+#    dsets = {x: LRW(x, args.dataset) for x in ['train', 'val', 'test']}
 
     '''train_examples
     train_labels
@@ -64,13 +63,16 @@ def data_loader(args):
     
 
 
-    dset_loaders = {x: torch.utils.data.DataLoader(dsets[x], batch_size=args.batch_size,\
-                       shuffle=True, num_workers=args.workers, pin_memory=use_gpu) \
-                       for x in ['train', 'val', 'test']}
-    dset_sizes = {x: len(dsets[x]) for x in ['train', 'val', 'test']}
-    print('\nStatistics: train: {}, val: {}, test: {}'.format(dset_sizes['train'], dset_sizes['val'], dset_sizes['test']))
-    # dset_loaders['train'] , dset_loaders['val']
-    return dset_loaders, dset_sizes
+#    dset_loaders = {x: torch.utils.data.DataLoader(dsets[x], batch_size=args.batch_size,\
+#                       shuffle=True, num_workers=args.workers, pin_memory=use_gpu) \
+#                       for x in ['train', 'val', 'test']}
+#    dset_sizes = {x: len(dsets[x]) for x in ['train', 'val', 'test']}
+#    print('\nStatistics: train: {}, val: {}, test: {}'.format(dset_sizes['train'], dset_sizes['val'], dset_sizes['test']))
+#    # dset_loaders['train'] , dset_loaders['val']
+#    return dset_loaders, dset_sizes
+
+    ds = 2
+    return ds
 
 
 def reload_model(model, path=""):
@@ -93,6 +95,13 @@ def showLR(optimizer):
         lr += [param_group['lr']]
     return lr
 
+#def load_file(filename):
+#    cap = np.load(filename)
+#    cap = tf.io.read_file(filename)
+#    # arrays = np.stack([cv2.cvtColor(cap[_], cv2.COLOR_RGB2GRAY) for _ in range(29)], axis=0)
+#    arrays = np.stack(cap, axis=0)
+#    arrays = arrays / 255.
+#    return arrays
 
 def run(args, use_gpu=True):
     
@@ -102,93 +111,96 @@ def run(args, use_gpu=True):
         os.mkdir(save_path)
 
     model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
-    model = reload_model(model, args.path).to(device)
+    model = reload_model(model, args.path) #.to(device)
 
-    dset_loaders, dset_sizes = data_loader(args)
+#    dset_loaders, dset_sizes = data_loader(args)
+#    
+#    train_loader = dset_loaders['train']
+#    val_loader = dset_loaders['test']
+#
+#    train_size = dset_sizes['train']
+#    val_size = dset_sizes['val']
     
-    train_loader = dset_loaders['train']
-    val_loader = dset_loaders['test']
-
-    train_size = dset_sizes['train']
-    val_size = dset_sizes['val']
-    
-    print(dset_loaders)
     # print(model.parameters()) - add to optimizer TO DO 
     # optimizer = tf.keras.optimizers.Adam(learning_rate=args.lr,
     #                                     decay=0.)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.)
+#    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.)
     # scheduler = AdjustLR(optimizer, [args.lr], sleep_epochs=5, half=5, verbose=1)
     # TQDM
-    desc = "ITERATION - loss: {:.2f}"
+#    desc = "ITERATION - loss: {:.2f}"
     # pbar = tqdm(initial=0, leave=False, total=len(train_loader), desc=desc.format(0))
 
+    model.compile(optimizer='adam', 
+           loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+           metrics=['accuracy']) 
+    model.fit(labeled_ds, epochs=2)
     # Ignite trainer
-    trainer = create_supervised_trainer(model, optimizer, F.cross_entropy, \
-                                        device=device, prepare_batch=prepare_train_batch)
-    evaluator = create_supervised_evaluator(model, metrics={'accuracy': Accuracy(), 
-                                                            'cross_entropy': Loss(F.cross_entropy),
-                                                            'top-3': TopKCategoricalAccuracy(3)
-                                                            }, device=device,\
-                                                            prepare_batch=prepare_val_batch)
+#    trainer = create_supervised_trainer(model, optimizer, F.cross_entropy, \
+#                                        device=device, prepare_batch=prepare_train_batch)
+#    evaluator = create_supervised_evaluator(model, metrics={'accuracy': Accuracy(), 
+#                                                            'cross_entropy': Loss(F.cross_entropy),
+#                                                            'top-3': TopKCategoricalAccuracy(3)
+#                                                            }, device=device,\
+#                                                            prepare_batch=prepare_val_batch)
 
-    # call backs
-    @evaluator.on(Events.EPOCH_STARTED)
-    def start_val(engine):
-        tqdm.write(
-            "Evaluation in progress"
-        )
-
-    @trainer.on(Events.ITERATION_COMPLETED)
-    def log_training_loss(engine):
-        iter = (engine.state.iteration - 1) % len(train_loader) + 1
-
-        if iter % args.interval == 0:
-            pbar.desc = desc.format(engine.state.output)
-            pbar.update(args.interval)
-
-
-    @trainer.on(Events.EPOCH_COMPLETED)
-    def log_training_results(engine):
-        pbar.refresh()
-        evaluator.run(train_loader)
-        metrics = evaluator.state.metrics
-        avg_accuracy = metrics['accuracy']
-        avg_loss = metrics['cross_entropy']
-        top_acc = metrics['top-3']
-        tqdm.write(
-            "Training Results - Epoch: {}  Avg accuracy: {:.2f}, Top3: {:.2f} Avg loss: {:.2f}"
-            .format(engine.state.epoch, avg_accuracy, top_acc, avg_loss)
-        )
-
-    @trainer.on(Events.EPOCH_COMPLETED)
-    def log_validation_results(engine):
-
-        # large dataset so saving often
-        tqdm.write("saving model ..")
-        torch.save(model.state_dict(), os.path.join(save_path,'epoch'+str(engine.state.epoch+1)+'.pt'))
-        # saving to ONNX format
-        dummy_input = torch.randn(args.batch_size, 1, 29, 88, 88)
-        torch.onnx.export(model, dummy_input, "lipnext.onnx")
-
-        evaluator.run(val_loader)
-        metrics = evaluator.state.metrics
-        avg_accuracy = metrics['accuracy']
-        top_acc = metrics['top-3']
-        avg_loss = metrics['cross_entropy']
-        tqdm.write(
-            "Validation Results - Epoch: {}  Avg accuracy: {:.2f}, Top3: {:.2f} Avg loss: {:.2f} "
-            .format(engine.state.epoch, avg_accuracy, top_acc, avg_loss)
-        )
-        
-
-        pbar.n = pbar.last_print_n = 0
-
-    @trainer.on(Events.EPOCH_COMPLETED)
-    def update_lr(engine):
-        scheduler.step(engine.state.epoch)
-
-    trainer.run(train_loader, max_epochs=args.epochs)
-    pbar.close()
+#    # call backs
+#    @evaluator.on(Events.EPOCH_STARTED)
+#    def start_val(engine):
+#        tqdm.write(
+#            "Evaluation in progress"
+#        )
+#
+#    @trainer.on(Events.ITERATION_COMPLETED)
+#    def log_training_loss(engine):
+#        iter = (engine.state.iteration - 1) % len(train_loader) + 1
+#
+#        if iter % args.interval == 0:
+#            pbar.desc = desc.format(engine.state.output)
+#            pbar.update(args.interval)
+#
+#
+#    @trainer.on(Events.EPOCH_COMPLETED)
+#    def log_training_results(engine):
+#        pbar.refresh()
+#        evaluator.run(train_loader)
+#        metrics = evaluator.state.metrics
+#        avg_accuracy = metrics['accuracy']
+#        avg_loss = metrics['cross_entropy']
+#        top_acc = metrics['top-3']
+#        tqdm.write(
+#            "Training Results - Epoch: {}  Avg accuracy: {:.2f}, Top3: {:.2f} Avg loss: {:.2f}"
+#            .format(engine.state.epoch, avg_accuracy, top_acc, avg_loss)
+#        )
+#
+#    @trainer.on(Events.EPOCH_COMPLETED)
+#    def log_validation_results(engine):
+#
+#        # large dataset so saving often
+#        tqdm.write("saving model ..")
+#        torch.save(model.state_dict(), os.path.join(save_path,'epoch'+str(engine.state.epoch+1)+'.pt'))
+#        # saving to ONNX format
+#        dummy_input = torch.randn(args.batch_size, 1, 29, 88, 88)
+#        torch.onnx.export(model, dummy_input, "lipnext.onnx")
+#
+#        evaluator.run(val_loader)
+#        metrics = evaluator.state.metrics
+#        avg_accuracy = metrics['accuracy']
+#        top_acc = metrics['top-3']
+#        avg_loss = metrics['cross_entropy']
+#        tqdm.write(
+#            "Validation Results - Epoch: {}  Avg accuracy: {:.2f}, Top3: {:.2f} Avg loss: {:.2f} "
+#            .format(engine.state.epoch, avg_accuracy, top_acc, avg_loss)
+#        )
+#        
+#
+#        pbar.n = pbar.last_print_n = 0
+#
+#    @trainer.on(Events.EPOCH_COMPLETED)
+#    def update_lr(engine):
+#        scheduler.step(engine.state.epoch)
+#
+#    trainer.run(train_loader, max_epochs=args.epochs)
+#    pbar.close()
 
 def main():
     # Settings

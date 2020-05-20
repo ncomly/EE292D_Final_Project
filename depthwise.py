@@ -27,7 +27,7 @@ class LipResBlock(keras.Model):
 
         self.shortcut = Sequential()
         if stride != 1 or in_planes != out_planes:
-            self.shortcut = Conv2D(out_planes, kernel_size=1, stride=stride, use_bias=False, kernel_initializer=initializer)
+            self.shortcut = Conv2D(out_planes, kernel_size=1, strides=stride, use_bias=False, kernel_initializer=initializer)
 
     def call(self, x):
         out = keras.activations.relu(self.bn1(self.conv1(x)))

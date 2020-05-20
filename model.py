@@ -94,11 +94,11 @@ class LipNext(Model):
         self.resnet34 = LipRes(self.alpha)
         # backend
         self.backend_conv1 = Sequential ( [  
-                Conv1D(2*self.inputDim, kernel_size=5, stride=2, use_bias=False, kernel_initializer=initializer),
+                Conv1D(2*self.inputDim, kernel_size=5, strides=2, use_bias=False, kernel_initializer=initializer),
                 BatchNormalization(momentum=0.1, epsilon=1e-5),
                 ReLU(),
                 MaxPool1D(2,2),
-                Conv1D(4*self.inputDim, kernel_size=5, stride=2, use_bias=False, kernel_initializer=initializer),
+                Conv1D(4*self.inputDim, kernel_size=5, strides=2, use_bias=False, kernel_initializer=initializer),
                 BatchNormalization(momentum=0.1, epsilon=1e-5),
                 ReLU()
             ] )

@@ -26,11 +26,11 @@ from ignite.metrics import Accuracy, Loss, TopKCategoricalAccuracy
 
 from tqdm import tqdm
 
-# from utils import *
+from utils import *
 from model import *
 from dataset import *
-# from lr_scheduler import *
-# from cvtransforms import *
+from lr_scheduler import *
+from cvtransforms import *
 
 
 print("Process Number: ",os.getpid())
@@ -44,12 +44,13 @@ np.random.seed(SEED)
 
 use_gpu = False
 
-if torch.cuda.is_available():
-    print("Available")
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+#if torch.cuda.is_available():
+#    print("Available")
+#    torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
-torch.cuda.set_device(1)
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+#torch.cuda.set_device(1)
+#device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 
 def data_loader(args):
     dsets = {x: LRW(x, args.dataset) for x in ['train', 'val', 'test']}

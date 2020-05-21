@@ -113,6 +113,9 @@ def run(args, use_gpu=True):
     model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
     model = reload_model(model, args.path) #.to(device)
 
+    dset = tf.data.TFRecordDataset("./test_tf_record_gray/batch_620_of_1000.tfrecords")
+    dset.shuffle(500).batch(32)
+
 #    dset_loaders, dset_sizes = data_loader(args)
 #    
 #    train_loader = dset_loaders['train']
@@ -133,7 +136,7 @@ def run(args, use_gpu=True):
     model.compile(optimizer='adam', 
            loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
            metrics=['accuracy']) 
-    model.fit(labeled_ds, epochs=2)
+    model.fit(dset, epochs=2)
     # Ignite trainer
 #    trainer = create_supervised_trainer(model, optimizer, F.cross_entropy, \
 #                                        device=device, prepare_batch=prepare_train_batch)

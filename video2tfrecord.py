@@ -77,24 +77,27 @@ def get_video_capture_and_frame_count(path):
   return cap, frame_count
 
 def CenterCrop(vid, size):
-    h,w = vid.shape[2], vid.shape[1]
+    h,w = vid.shape[1], vid.shape[0]
     ch, cw = h//2, w//2
-    nh, nw = size
+    nh, nw, _ = size
     if vid.ndim == 4:
         return vid[:, ch-nh//2:ch+nh//2, cw-nw//2:cw+nw//2, :]
     else:
-        return vid[ch-nh//2:ch+nh//2, cw-nw//2:cw+nw//2]
+        return vid[ch-nh//2:ch+nh//2, cw-nw//2:cw+nw//2, :]
 
 
 
 def get_next_frame(cap):
-  # ret, frame = cap.read()
   ret, frame = cap.read()
-  frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-  frame = CenterCrop(frame)
   if not ret:
     return None
-
+  frame3 = np.zeros_like(frame)
+  frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+  frame3[:,:,0] = frame
+  frame3[:,:,1] = frame
+  frame3[:,:,2] = frame
+  frame = frame3
+  frame = CenterCrop(frame, (96, 96, 3))
   return np.asarray(frame)
 
 
@@ -215,7 +218,7 @@ def save_numpy_to_tfrecords(data, destination_path, name, fragmentSize,
                               name + str(current_batch_number) + '_of_' + str(
                                 total_batch_number) + '.tfrecords')
       print('Writing', filename)
-      writer = tf.python_io.TFRecordWriter(filename)
+      writer = tf.io.TFRecordWriter(filename)
 
     for image_count in range(num_images):
       path = 'blob' + '/' + str(image_count)

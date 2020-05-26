@@ -30,7 +30,7 @@ from utils import *
 from model import *
 from dataset import *
 # from lr_scheduler import *
-# from cvtransforms import *
+from cvtransforms import *
 
 from PIL import Image
 
@@ -53,18 +53,8 @@ use_gpu = False
 #device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
 
-def data_loader(args):
+#def data_loader(args):
 #    dsets = {x: LRW(x, args.dataset) for x in ['train', 'val', 'test']}
-
-    '''train_examples
-    train_labels
-    val_examples
-    val_labels
-    test_examples
-    test_labels'''
-    
-
-
 #    dset_loaders = {x: torch.utils.data.DataLoader(dsets[x], batch_size=args.batch_size,\
 #                       shuffle=True, num_workers=args.workers, pin_memory=use_gpu) \
 #                       for x in ['train', 'val', 'test']}
@@ -72,10 +62,6 @@ def data_loader(args):
 #    print('\nStatistics: train: {}, val: {}, test: {}'.format(dset_sizes['train'], dset_sizes['val'], dset_sizes['test']))
 #    # dset_loaders['train'] , dset_loaders['val']
 #    return dset_loaders, dset_sizes
-
-    ds = 2
-    return ds
-
 
 def reload_model(model, path=""):
     if not bool(path):
@@ -114,16 +100,15 @@ def run(args, use_gpu=True):
 
     model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
     model = reload_model(model, args.path) #.to(device)
+    #model = tf.keras.Sequential([
+    #    tf.keras.layers.Flatten(),
+    #    tf.keras.layers.Dense(10)
+    #])
 
     #raw_dataset = tf.data.TFRecordDataset("./test_tfrecord_gray_label/batch_620_of_1000.tfrecords")
-#    tfrecords_list = os.listdir("./test_tfrecord_gray_label")
     tfrecords_list = glob.glob("./test_tfrecord_gray_label/*.tfrecords") 
-    print("DIR: ", tfrecords_list)
     raw_dataset = tf.data.TFRecordDataset(tfrecords_list)
-#    dset.shuffle(500).batch(32)
     print("raw_dataset: ", raw_dataset)
-#    for rec in raw_dataset:
-#        print("REPR: ", repr(rec))
 
     n_frames = 29
     num_depth = 3
@@ -133,7 +118,6 @@ def run(args, use_gpu=True):
         image_seq = []
         for image_count in range(n_frames):
             path = 'blob' + '/' + str(image_count)
-            print("path: ", path)
             feature_description = {
                 path: tf.io.FixedLenFeature([], tf.string),
                 'label': tf.io.FixedLenFeature([], tf.int64),
@@ -142,38 +126,63 @@ def run(args, use_gpu=True):
                 'depth': tf.io.FixedLenFeature([], tf.int64)
             }
             features = tf.io.parse_single_example(example, feature_description)
-            print(features)
             image_buffer = tf.reshape(features[path], shape=[])
-            print("im_buffer: ", image_buffer)
             image = tf.io.decode_raw(image_buffer, tf.uint8)
-            print("im1: ",image, image.shape)
             image = tf.reshape(image, tf.stack([height, width, num_depth]))
             image = tf.reshape(image, [1, height, width, num_depth])
-            image = image[:,:,:,0]
-#            image = tf.geti
-            print("im2: ", image)
+            image = image[:,:,:,0] / tf.constant(255, shape=(1, height, width), dtype=tf.uint8) 
             image_seq.append(image)
-            print("label: ", features['label'])
+        image_seq = tf.reshape(image_seq, [1, n_frames, height, width])
         image_seq = tf.concat(image_seq, 0)
+        label = features['label']
         print("image_seq: ", image_seq)
-        return (image_seq, features['label'])
+        print("label: ", label)
+ 
+        inputs = image_seq
+        #inputs = RandomCrop(image_seq.numpy(), (88,88))
+        #inputs = ColorNormalization(inputs)
+        #inputs = HorizontalFlip(inputs)
+        return (inputs, label)
 
     parsed_dataset = raw_dataset.map(_parse_function)
     parsed_dataset = parsed_dataset.shuffle(500).batch(16)
 #    print(list(parsed_dataset.as_numpy_iterator()))
     print("parsed_dataset: ",parsed_dataset)
 
-    for example in parsed_dataset.take(10):
-        image_seq, label = example
-        print("IMG SHAPE:", image_seq.numpy().shape)
-        img = Image.fromarray(image_seq.numpy()[0,5,:,:], 'L')
-        img.save('test_img.png')
-        print(label)
+    for i,example in enumerate(parsed_dataset.take(1)):
+        image, label = example
+        print("img shape:", image.numpy().shape)
+        print("img: ", image.numpy())
+        print("img label: ", label)
+        for j in range(n_frames):
+            img = Image.fromarray(image.numpy()[0,0,j,:,:], 'L')
+            img.save('test_images/test_img_'+str(j)+'.png')
 #        break
-        
-#    for ex in parsed_dataset:
-#        print(ex)
-#        print(repr(ex))
+ 
+    parsed_dataset = parsed_dataset.repeat(2) #2 epochs
+    
+    sess = tf.compat.v1.Session()
+    
+    iterator = tf.compat.v1.data.make_one_shot_iterator(parsed_dataset) #.make_one_shot_iterator()
+    next_example, next_label = iterator.get_next()
+
+    _, _, loss = model(next_example, next_label)
+    training_op = tf.train.AdamOptimizer().minimize(loss)
+
+    sess.run(tf.global_varaiables_initializer())
+
+    start = time.time()
+    for epoch in range(2):
+        S = 0
+        for batch in range(3):
+            try:
+                L, _ = sess.run([loss, training_op])
+            except tf.errors.OutOfRangeError:
+                break
+            S += L
+        if epoch % 100 == 0:
+            print(S, S/3.0)
+    print(time.time()-start, 's')
 
 #    dset_loaders, dset_sizes = data_loader(args)
 #    
@@ -192,11 +201,12 @@ def run(args, use_gpu=True):
 #    desc = "ITERATION - loss: {:.2f}"
     # pbar = tqdm(initial=0, leave=False, total=len(train_loader), desc=desc.format(0))
 
-    model.compile(optimizer='adam', 
-           loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-           metrics=['accuracy']) 
-    model.fit(parsed_dataset, epochs=2)
-    # Ignite trainer
+#    model.compile(optimizer='adam', 
+#           loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+#           metrics=['accuracy']) 
+#    model.fit(parsed_dataset, epochs=2)
+ 
+ # Ignite trainer
 #    trainer = create_supervised_trainer(model, optimizer, F.cross_entropy, \
 #                                        device=device, prepare_batch=prepare_train_batch)
 #    evaluator = create_supervised_evaluator(model, metrics={'accuracy': Accuracy(), 

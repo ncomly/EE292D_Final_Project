@@ -70,7 +70,8 @@ class LipNext(Model):
     def __init__(self, inputDim=256, hiddenDim=512, nClasses=500, frameLen=29, alpha=2):
         super(LipNext, self).__init__()
 
-        initializer = tf.initializers.VarianceScaling(scale=2.0) # added for initialization
+#        initializer = tf.initializers.VarianceScaling(scale=2.0) # added for initialization
+        initializer = 'glorot_uniform'
 
         self.inputDim = inputDim
         self.hiddenDim = hiddenDim
@@ -80,7 +81,7 @@ class LipNext(Model):
         self.alpha = alpha
         # frontend3D
         self.frontend3D = Sequential ( [
-                ZeroPadding3D(padding=(1,1,1)), # double check channel placement
+                ZeroPadding3D(padding=(1,1,1)), #input_shape=(1,29,96,96)), # double check channel placement
                 Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer),
                 BatchNormalization(momentum=.1, epsilon=1e-5), # should this be .9 instead?
                 ReLU(), # check in place?
@@ -126,11 +127,12 @@ class LipNext(Model):
         x = self.resnet34(x)
         # 464 256
         x = x.view(-1, self.frameLen, self.inputDim)
-        # 16 29 256
+       # # 16 29 256
         x = x.transpose(1, 2)
         # 16 256 29
         x = self.backend_conv1(x)
-        x = torch.mean(x,2)
+        # TO FIX
+        #x = torch.mean(x,2)
         # x = x.view(-1, 4, 16, 16)
         x = self.backend_conv2(x)
         # x = x.view(-1, self.nClasses)

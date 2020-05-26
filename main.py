@@ -5,6 +5,7 @@ import random
 import logging
 import argparse
 import numpy as np
+import glob
 
 
 import keras
@@ -114,7 +115,11 @@ def run(args, use_gpu=True):
     model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
     model = reload_model(model, args.path) #.to(device)
 
-    raw_dataset = tf.data.TFRecordDataset("./test_tfrecord_gray_label/batch_620_of_1000.tfrecords")
+    #raw_dataset = tf.data.TFRecordDataset("./test_tfrecord_gray_label/batch_620_of_1000.tfrecords")
+#    tfrecords_list = os.listdir("./test_tfrecord_gray_label")
+    tfrecords_list = glob.glob("./test_tfrecord_gray_label/*.tfrecords") 
+    print("DIR: ", tfrecords_list)
+    raw_dataset = tf.data.TFRecordDataset(tfrecords_list)
 #    dset.shuffle(500).batch(32)
     print("raw_dataset: ", raw_dataset)
 #    for rec in raw_dataset:
@@ -131,7 +136,7 @@ def run(args, use_gpu=True):
             print("path: ", path)
             feature_description = {
                 path: tf.io.FixedLenFeature([], tf.string),
-                'label': tf.io.FixedLenFeature([], tf.string),
+                'label': tf.io.FixedLenFeature([], tf.int64),
                 'height': tf.io.FixedLenFeature([], tf.int64),
                 'width': tf.io.FixedLenFeature([], tf.int64),
                 'depth': tf.io.FixedLenFeature([], tf.int64)
@@ -141,9 +146,11 @@ def run(args, use_gpu=True):
             image_buffer = tf.reshape(features[path], shape=[])
             print("im_buffer: ", image_buffer)
             image = tf.io.decode_raw(image_buffer, tf.uint8)
-            print("im1: ",image)
+            print("im1: ",image, image.shape)
             image = tf.reshape(image, tf.stack([height, width, num_depth]))
             image = tf.reshape(image, [1, height, width, num_depth])
+            image = image[:,:,:,0]
+#            image = tf.geti
             print("im2: ", image)
             image_seq.append(image)
             print("label: ", features['label'])
@@ -152,14 +159,17 @@ def run(args, use_gpu=True):
         return (image_seq, features['label'])
 
     parsed_dataset = raw_dataset.map(_parse_function)
+    parsed_dataset = parsed_dataset.shuffle(500).batch(16)
+#    print(list(parsed_dataset.as_numpy_iterator()))
     print("parsed_dataset: ",parsed_dataset)
 
-    for example in parsed_dataset:
+    for example in parsed_dataset.take(10):
         image_seq, label = example
-        print(image_seq.numpy().shape)
-        img = Image.fromarray(image_seq.numpy()[5,:,:,:], 'RGB')
+        print("IMG SHAPE:", image_seq.numpy().shape)
+        img = Image.fromarray(image_seq.numpy()[0,5,:,:], 'L')
         img.save('test_img.png')
-        break
+        print(label)
+#        break
         
 #    for ex in parsed_dataset:
 #        print(ex)

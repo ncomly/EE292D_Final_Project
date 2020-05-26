@@ -43,6 +43,7 @@ flags.DEFINE_string('video_filenames', None,
                     'specifies the video file names as a list in the case the video paths shall not be determined by the '
                     'script')
 
+labels_dir = {}
 
 def _int64_feature(value):
   return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -152,6 +153,15 @@ def convert_videos_to_tfrecord(source_path, destination_path,
   """
   assert isinstance(n_frames_per_video, (int, str))
 
+  with open("label_sorted.txt", 'r') as fp:
+      label_idx = 0
+      label_line = fp.readline().strip()
+      while (label_line):
+          labels_dir[label_line] = label_idx
+          label_idx += 1
+          label_line = fp.readline().strip()
+  print(labels_dir)
+
   if type(n_frames_per_video) is str:
     assert n_frames_per_video == "all"
 
@@ -226,11 +236,12 @@ def save_numpy_to_tfrecords(data, source_path, destination_path, name, fragmentS
       image = data[video_count, image_count, :, :, :]
       image = image.astype(color_depth)
       image_raw = image.tostring()
-      label = source_path.split('/')[-3]
+      label = labels_dir[source_path.split('/')[-3]]
 
       feature[path] = _bytes_feature(image_raw)
       #feature['label'] = _bytes_feature(bytearray().extend(map(ord, source_path.split('/')[-3])))
-      feature['label'] = _bytes_feature(label.encode('utf-8'))
+      #feature['label'] = _bytes_feature(label.encode('utf-8'))
+      feature['label'] = _int64_feature(label)
       feature['height'] = _int64_feature(height)
       feature['width'] = _int64_feature(width)
       feature['depth'] = _int64_feature(num_channels)

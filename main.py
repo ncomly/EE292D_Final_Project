@@ -31,6 +31,7 @@ from dataset import *
 # from lr_scheduler import *
 # from cvtransforms import *
 
+from PIL import Image
 
 print("Process Number: ",os.getpid())
 
@@ -113,8 +114,56 @@ def run(args, use_gpu=True):
     model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
     model = reload_model(model, args.path) #.to(device)
 
-    dset = tf.data.TFRecordDataset("./test_tf_record_gray/batch_620_of_1000.tfrecords")
-    dset.shuffle(500).batch(32)
+    raw_dataset = tf.data.TFRecordDataset("./test_tfrecord_gray_label/batch_620_of_1000.tfrecords")
+#    dset.shuffle(500).batch(32)
+    print("raw_dataset: ", raw_dataset)
+#    for rec in raw_dataset:
+#        print("REPR: ", repr(rec))
+
+    n_frames = 29
+    num_depth = 3
+    height = 96
+    width = 96
+    def _parse_function(example):
+        image_seq = []
+        for image_count in range(n_frames):
+            path = 'blob' + '/' + str(image_count)
+            print("path: ", path)
+            feature_description = {
+                path: tf.io.FixedLenFeature([], tf.string),
+                'label': tf.io.FixedLenFeature([], tf.string),
+                'height': tf.io.FixedLenFeature([], tf.int64),
+                'width': tf.io.FixedLenFeature([], tf.int64),
+                'depth': tf.io.FixedLenFeature([], tf.int64)
+            }
+            features = tf.io.parse_single_example(example, feature_description)
+            print(features)
+            image_buffer = tf.reshape(features[path], shape=[])
+            print("im_buffer: ", image_buffer)
+            image = tf.io.decode_raw(image_buffer, tf.uint8)
+            print("im1: ",image)
+            image = tf.reshape(image, tf.stack([height, width, num_depth]))
+            image = tf.reshape(image, [1, height, width, num_depth])
+            print("im2: ", image)
+            image_seq.append(image)
+            print("label: ", features['label'])
+        image_seq = tf.concat(image_seq, 0)
+        print("image_seq: ", image_seq)
+        return (image_seq, features['label'])
+
+    parsed_dataset = raw_dataset.map(_parse_function)
+    print("parsed_dataset: ",parsed_dataset)
+
+    for example in parsed_dataset:
+        image_seq, label = example
+        print(image_seq.numpy().shape)
+        img = Image.fromarray(image_seq.numpy()[5,:,:,:], 'RGB')
+        img.save('test_img.png')
+        break
+        
+#    for ex in parsed_dataset:
+#        print(ex)
+#        print(repr(ex))
 
 #    dset_loaders, dset_sizes = data_loader(args)
 #    
@@ -136,7 +185,7 @@ def run(args, use_gpu=True):
     model.compile(optimizer='adam', 
            loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
            metrics=['accuracy']) 
-    model.fit(dset, epochs=2)
+    model.fit(parsed_dataset, epochs=2)
     # Ignite trainer
 #    trainer = create_supervised_trainer(model, optimizer, F.cross_entropy, \
 #                                        device=device, prepare_batch=prepare_train_batch)

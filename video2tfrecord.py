@@ -98,6 +98,7 @@ def get_next_frame(cap):
   frame3[:,:,2] = frame
   frame = frame3
   frame = CenterCrop(frame, (96, 96, 3))
+#  frame = CenterCrop(frame, (height, width, num_channels))
   return np.asarray(frame)
 
 
@@ -181,12 +182,12 @@ def convert_videos_to_tfrecord(source_path, destination_path,
       total_batch_number = int(math.ceil(len(filenames) / n_videos_in_record))
     print('Batch ' + str(i + 1) + '/' + str(total_batch_number) + " completed")
     assert data.size != 0, 'something went wrong during video to numpy conversion'
-    save_numpy_to_tfrecords(data, destination_path, 'batch_',
+    save_numpy_to_tfrecords(data, source_path, destination_path, 'batch_',
                             n_videos_in_record, i + 1, total_batch_number,
                             color_depth=color_depth)
 
 
-def save_numpy_to_tfrecords(data, destination_path, name, fragmentSize,
+def save_numpy_to_tfrecords(data, source_path, destination_path, name, fragmentSize,
                             current_batch_number, total_batch_number,
                             color_depth):
   """Converts an entire dataset into x tfrecords where x=videos/fragmentSize.
@@ -225,8 +226,11 @@ def save_numpy_to_tfrecords(data, destination_path, name, fragmentSize,
       image = data[video_count, image_count, :, :, :]
       image = image.astype(color_depth)
       image_raw = image.tostring()
+      label = source_path.split('/')[-3]
 
       feature[path] = _bytes_feature(image_raw)
+      #feature['label'] = _bytes_feature(bytearray().extend(map(ord, source_path.split('/')[-3])))
+      feature['label'] = _bytes_feature(label.encode('utf-8'))
       feature['height'] = _int64_feature(height)
       feature['width'] = _int64_feature(width)
       feature['depth'] = _int64_feature(num_channels)

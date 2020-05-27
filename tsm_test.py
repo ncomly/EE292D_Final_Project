@@ -3,29 +3,22 @@
 # Ji Lin*, Chuang Gan, Song Han
 # {jilin, songhan}@mit.edu, ganchuang@csail.mit.edu
 
-# import torch
-# import torch.nn as nn
-# import torch.nn.functional as F
-
-# import keras
-# from keras.models import Model
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 import tensorflow as tf
 from tensorflow.keras.models import Model
 
 import numpy as np
 
-class TemporalShift(Model):
+class TemporalShift1(Model):
     def __init__(self, net, n_segment=3, n_div=8, inplace=False):
-        super(TemporalShift, self).__init__()
+        super(TemporalShift1, self).__init__()
         self.net = net
         self.n_segment = n_segment
         self.fold_div = n_div
         self.inplace = inplace
-
-        if inplace:
-            print('=> Using in-place shift...')
-        print('=> Using fold div: {}'.format(self.fold_div))
 
     def forward(self, x):
         x = self.shift(x, self.n_segment, fold_div=self.fold_div, inplace=self.inplace)
@@ -36,7 +29,43 @@ class TemporalShift(Model):
         nt, c, h, w = x.shape
         n_batch = nt // n_segment
         x = tf.reshape(x, [n_batch, n_segment, c, h, w])
+
+        fold = c // fold_div
         
+        out = np.zeros(x.shape)
+        out[:, :-1, :fold] = x[:, 1:, :fold]
+        out[:, 1:, fold:2*fold] = x[:, :-1, fold: 2*fold]
+        out[:, :, 2 * fold:] = x[:, :, 2*fold:]
+
+        out = tf.convert_to_tensor(out)
+        out = tf.reshape(out, [nt, c, h, w])
+        return out
+
+    def call(self, inputs):
+        return self.forward(inputs)
+
+
+class TemporalShift(nn.Module):
+    def __init__(self, net, n_segment=3, n_div=8, inplace=False):
+        super(TemporalShift, self).__init__()
+        self.net = net
+        self.n_segment = n_segment
+        self.fold_div = n_div
+        self.inplace = inplace
+        if inplace:
+            print('=> Using in-place shift...')
+        print('=> Using fold div: {}'.format(self.fold_div))
+
+    def forward(self, x):
+        x = self.shift(x, self.n_segment, fold_div=self.fold_div, inplace=self.inplace)
+        return self.net(x)
+
+    @staticmethod
+    def shift(x, n_segment, fold_div=3, inplace=False):
+        nt, c, h, w = x.size()
+        n_batch = nt // n_segment
+        x = x.view(n_batch, n_segment, c, h, w)
+
         fold = c // fold_div
         if inplace:
             # Due to some out of order error when performing parallel computing. 
@@ -44,20 +73,15 @@ class TemporalShift(Model):
             raise NotImplementedError  
             # out = InplaceShift.apply(x, fold)
         else:
-            out = np.zeros(x.shape)
+            out = torch.zeros_like(x)
             out[:, :-1, :fold] = x[:, 1:, :fold]  # shift left
             out[:, 1:, fold: 2 * fold] = x[:, :-1, fold: 2 * fold]  # shift right
             out[:, :, 2 * fold:] = x[:, :, 2 * fold:]  # not shift
 
-            out = tf.convert_to_tensor(out)
-            out = tf.reshape(out, [nt, c, h, w])
-        return out
-
-    def call(self, inputs):
-        return self.forward(inputs)
+        return out.view(nt, c, h, w)
 
 
-'''class InplaceShift(torch.autograd.Function):
+class InplaceShift(torch.autograd.Function):
     # Special thanks to @raoyongming for the help to this function
     @staticmethod
     def forward(ctx, input, fold):
@@ -158,42 +182,58 @@ def make_temporal_pool(net, n_segment):
         print('=> Injecting nonlocal pooling')
         net.layer2 = TemporalPool(net.layer2, n_segment)
     else:
-        raise NotImplementedError'''
+        raise NotImplementedError
 
 
 if __name__ == '__main__':
     # test inplace shift v.s. vanilla shift
-    print("test start")
-    tsm1 = TemporalShift(tf.keras.Sequential(), n_segment=8, n_div=8, inplace=False)
-    # tsm2 = TemporalShift(tf.keras.Sequential(), n_segment=8, n_div=8, inplace=True)
-
-    x = tf.random.uniform([2 * 8, 3, 224, 224])
-    # tf.stop_gradient(x)
-    y1 = tsm1(x)
-
-    '''print('=> Testing CPU...')
+    tsm1 = TemporalShift(nn.Sequential(), n_segment=8, n_div=8, inplace=False)
+    # tsm2 = TemporalShift(nn.Sequential(), n_segment=8, n_div=8, inplace=True)
+    tsm = TemporalShift1(tf.keras.Sequential(), 8, 8, False)
+    print('=> Testing CPU...')
     # test forward
     with torch.no_grad():
-        for i in range(10):
-            x = tf.random.uniform([2 * 8, 3, 224, 224])
-            # x = torch.rand(2 * 8, 3, 224, 224)
+        for i in range(1):
+            x = torch.rand(2 * 8, 3, 224, 224)
+            npx = x.numpy()
             y1 = tsm1(x)
-            y2 = tsm2(x)
-            assert torch.norm(y1 - y2).item() < 1e-5
+            y2 = tsm(tf.convert_to_tensor(x))
+            
+            y1 = y1.numpy()
+
+            y2 = y2.numpy()
+
+            # print(y1)
+            # print(y2)
+            print(np.array_equal(y1, y2))
+            print(np.allclose(y1, y2))
+
+            assert np.allclose(y1, y2)
+
+#            print(y1)
+#            print("-------------------------------------------")
+#            print(y2)
+
+#            print((y1 == y2).all())
+
+#            print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+#            print(np.array_equal(y1, y2))
+#            print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+#            print(np.allclose(y1, y2))
 
     # test backward
-    with torch.enable_grad():
+    '''with torch.enable_grad():
         for i in range(10):
-            x1 = tf.random.uniform([2 * 8, 3, 224, 224])
+            x1 = torch.rand(2 * 8, 3, 224, 224)
             x1.requires_grad_()
             x2 = x1.clone()
             y1 = tsm1(x1)
             y2 = tsm2(x2)
             grad1 = torch.autograd.grad((y1 ** 2).mean(), [x1])[0]
             grad2 = torch.autograd.grad((y2 ** 2).mean(), [x2])[0]
-            assert torch.norm(grad1 - grad2).item() < 1e-5'''
+            assert torch.norm(grad1 - grad2).item() < 1e-5
 
-    '''print('=> Testing GPU...')
+    print('=> Testing GPU...')
     tsm1.cuda()
     tsm2.cuda()
     # test forward
@@ -216,4 +256,7 @@ if __name__ == '__main__':
             grad2 = torch.autograd.grad((y2 ** 2).mean(), [x2])[0]
             assert torch.norm(grad1 - grad2).item() < 1e-5'''
     print('Test passed.')
+
+
+
 

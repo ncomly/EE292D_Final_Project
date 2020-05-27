@@ -1,11 +1,12 @@
 # Ported to TF from https://github.com/midas-research/mobile-vsr/blob/master/depthwise.py
-import keras
-from keras.models import Sequential
-from keras.layers import Conv2D, BatchNormalization, DepthwiseConv2D
-
 import tensorflow as tf
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Conv2D, BatchNormalization, DepthwiseConv2D
+#import keras
+#from keras.models import Sequential
+#from keras.layers import Conv2D, BatchNormalization, DepthwiseConv2D
 
-class LipResBlock(keras.Model):
+class LipResBlock(tf.keras.Model):
     def __init__ (self, in_planes, out_planes, stride=1, reduction=1):
         super(LipResBlock, self).__init__()
 
@@ -27,7 +28,7 @@ class LipResBlock(keras.Model):
 
         self.shortcut = Sequential()
         if stride != 1 or in_planes != out_planes:
-            self.shortcut = Conv2D(out_planes, kernel_size=1, stride=stride, use_bias=False, kernel_initializer=initializer)
+            self.shortcut = Conv2D(out_planes, kernel_size=1, strides=stride, use_bias=False, kernel_initializer=initializer)
 
     def call(self, x):
         out = keras.activations.relu(self.bn1(self.conv1(x)))

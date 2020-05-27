@@ -2,14 +2,13 @@
 import math
 import numpy as np
 
-import keras
-from depthwise import *
-from keras.layers import Dense, ReLU
-from keras.layers import Conv1D, Conv2D, Conv3D, ZeroPadding3D
-from keras.layers import BatchNormalization, AveragePooling2D, MaxPool1D
-from keras.models import Model
-
 import tensorflow as tf
+#import keras
+from depthwise import *
+from tensorflow.keras.layers import Dense, ReLU
+from tensorflow.keras.layers import Conv1D, Conv2D, Conv3D, ZeroPadding3D
+from tensorflow.keras.layers import BatchNormalization, AveragePooling2D, MaxPool1D
+from tensorflow.keras.models import Model
 
 def LipRes(alpha=2, reduction=1, num_classes=256):
     block = lambda in_planes, planes, stride: \
@@ -17,7 +16,7 @@ def LipRes(alpha=2, reduction=1, num_classes=256):
 
     return ResNet(block, [alpha, alpha, alpha, alpha], reduction, num_classes) # TODO tunable alpha param + # alpha blocks
 
-class ResNet(Model):
+class ResNet(tf.keras.Model):
     def __init__(self, block, num_blocks, reduction=1, num_classes=256):
         super(ResNet, self).__init__()
 
@@ -65,12 +64,14 @@ class ResNet(Model):
         # 464 512
         x = self.fc(x)
         x = self.bnfc(x)
+        return x
 
-class LipNext(Model):
+class LipNext(tf.keras.Model):
     def __init__(self, inputDim=256, hiddenDim=512, nClasses=500, frameLen=29, alpha=2):
         super(LipNext, self).__init__()
 
-        initializer = tf.initializers.VarianceScaling(scale=2.0) # added for initialization
+#        initializer = tf.initializers.VarianceScaling(scale=2.0) # added for initialization
+        initializer = 'glorot_uniform'
 
         self.inputDim = inputDim
         self.hiddenDim = hiddenDim
@@ -80,7 +81,7 @@ class LipNext(Model):
         self.alpha = alpha
         # frontend3D
         self.frontend3D = Sequential ( [
-                ZeroPadding3D(padding=(1,1,1)), # double check channel placement
+                ZeroPadding3D(padding=(1,1,1)), #input_shape=(1,29,96,96)), # double check channel placement
                 Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer),
                 BatchNormalization(momentum=.1, epsilon=1e-5), # should this be .9 instead?
                 ReLU(), # check in place?
@@ -94,11 +95,11 @@ class LipNext(Model):
         self.resnet34 = LipRes(self.alpha)
         # backend
         self.backend_conv1 = Sequential ( [  
-                Conv1D(2*self.inputDim, kernel_size=5, stride=2, use_bias=False, kernel_initializer=initializer),
+                Conv1D(2*self.inputDim, kernel_size=5, strides=2, use_bias=False, kernel_initializer=initializer),
                 BatchNormalization(momentum=0.1, epsilon=1e-5),
                 ReLU(),
                 MaxPool1D(2,2),
-                Conv1D(4*self.inputDim, kernel_size=5, stride=2, use_bias=False, kernel_initializer=initializer),
+                Conv1D(4*self.inputDim, kernel_size=5, strides=2, use_bias=False, kernel_initializer=initializer),
                 BatchNormalization(momentum=0.1, epsilon=1e-5),
                 ReLU()
             ] )
@@ -117,20 +118,25 @@ class LipNext(Model):
         # TODO: direct copy need to check all of this at runtime
         x = self.frontend3D(x)
         # 16, 64, 29, 22,22
-        x = x.transpose(1, 2)
+        x = tf.transpose(x, perm=[0, 2, 1, 3, 4])
+        #x = x.transpose(1, 2)
         # 16, 29, 64 , 22, 22
-        x = x.contiguous()
+        #x = x.contiguous()
         
-        x = x.view(-1, 64, x.size(3), x.size(4))
+        #x = x.view(-1, 64, x.size(3), x.size(4))
+        # TODO
+        x = tf.reshape(x) 
         # 464, 64, 22, 22
         x = self.resnet34(x)
         # 464 256
         x = x.view(-1, self.frameLen, self.inputDim)
-        # 16 29 256
-        x = x.transpose(1, 2)
+       # # 16 29 256
+        x = tf.transpose(x, perm=[0, 2, 1, 3, 4])
+        #x = x.transpose(1, 2)
         # 16 256 29
         x = self.backend_conv1(x)
-        x = torch.mean(x,2)
+        # TO FIX
+        #x = torch.mean(x,2)
         # x = x.view(-1, 4, 16, 16)
         x = self.backend_conv2(x)
         # x = x.view(-1, self.nClasses)

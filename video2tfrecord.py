@@ -43,6 +43,7 @@ flags.DEFINE_string('video_filenames', None,
                     'specifies the video file names as a list in the case the video paths shall not be determined by the '
                     'script')
 
+labels_dir = {}
 
 def _int64_feature(value):
   return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -77,24 +78,28 @@ def get_video_capture_and_frame_count(path):
   return cap, frame_count
 
 def CenterCrop(vid, size):
-    h,w = vid.shape[2], vid.shape[1]
+    h,w = vid.shape[1], vid.shape[0]
     ch, cw = h//2, w//2
-    nh, nw = size
+    nh, nw, _ = size
     if vid.ndim == 4:
         return vid[:, ch-nh//2:ch+nh//2, cw-nw//2:cw+nw//2, :]
     else:
-        return vid[ch-nh//2:ch+nh//2, cw-nw//2:cw+nw//2]
+        return vid[ch-nh//2:ch+nh//2, cw-nw//2:cw+nw//2, :]
 
 
 
 def get_next_frame(cap):
-  # ret, frame = cap.read()
   ret, frame = cap.read()
-  frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-  frame = CenterCrop(frame)
   if not ret:
     return None
-
+#  frame3 = np.zeros_like(frame)
+#  frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+#  frame3[:,:,0] = frame
+#  frame3[:,:,1] = frame
+#  frame3[:,:,2] = frame
+#  frame = frame3
+  frame = CenterCrop(frame, (96, 96, 3))
+#  frame = CenterCrop(frame, (height, width, num_channels))
   return np.asarray(frame)
 
 
@@ -148,6 +153,15 @@ def convert_videos_to_tfrecord(source_path, destination_path,
   """
   assert isinstance(n_frames_per_video, (int, str))
 
+  with open("label_sorted.txt", 'r') as fp:
+      label_idx = 0
+      label_line = fp.readline().strip()
+      while (label_line):
+          labels_dir[label_line] = label_idx
+          label_idx += 1
+          label_line = fp.readline().strip()
+  print(labels_dir)
+
   if type(n_frames_per_video) is str:
     assert n_frames_per_video == "all"
 
@@ -178,12 +192,12 @@ def convert_videos_to_tfrecord(source_path, destination_path,
       total_batch_number = int(math.ceil(len(filenames) / n_videos_in_record))
     print('Batch ' + str(i + 1) + '/' + str(total_batch_number) + " completed")
     assert data.size != 0, 'something went wrong during video to numpy conversion'
-    save_numpy_to_tfrecords(data, destination_path, 'batch_',
+    save_numpy_to_tfrecords(data, source_path, destination_path, 'batch_',
                             n_videos_in_record, i + 1, total_batch_number,
                             color_depth=color_depth)
 
 
-def save_numpy_to_tfrecords(data, destination_path, name, fragmentSize,
+def save_numpy_to_tfrecords(data, source_path, destination_path, name, fragmentSize,
                             current_batch_number, total_batch_number,
                             color_depth):
   """Converts an entire dataset into x tfrecords where x=videos/fragmentSize.
@@ -215,15 +229,19 @@ def save_numpy_to_tfrecords(data, destination_path, name, fragmentSize,
                               name + str(current_batch_number) + '_of_' + str(
                                 total_batch_number) + '.tfrecords')
       print('Writing', filename)
-      writer = tf.python_io.TFRecordWriter(filename)
+      writer = tf.io.TFRecordWriter(filename)
 
     for image_count in range(num_images):
       path = 'blob' + '/' + str(image_count)
       image = data[video_count, image_count, :, :, :]
       image = image.astype(color_depth)
       image_raw = image.tostring()
+      label = labels_dir[source_path.split('/')[-3]]
 
       feature[path] = _bytes_feature(image_raw)
+      #feature['label'] = _bytes_feature(bytearray().extend(map(ord, source_path.split('/')[-3])))
+      #feature['label'] = _bytes_feature(label.encode('utf-8'))
+      feature['label'] = _int64_feature(label)
       feature['height'] = _int64_feature(height)
       feature['width'] = _int64_feature(width)
       feature['depth'] = _int64_feature(num_channels)

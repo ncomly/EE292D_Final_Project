@@ -92,12 +92,12 @@ def get_next_frame(cap):
   ret, frame = cap.read()
   if not ret:
     return None
-  frame3 = np.zeros_like(frame)
-  frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-  frame3[:,:,0] = frame
-  frame3[:,:,1] = frame
-  frame3[:,:,2] = frame
-  frame = frame3
+#  frame3 = np.zeros_like(frame)
+#  frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+#  frame3[:,:,0] = frame
+#  frame3[:,:,1] = frame
+#  frame3[:,:,2] = frame
+#  frame = frame3
   frame = CenterCrop(frame, (96, 96, 3))
 #  frame = CenterCrop(frame, (height, width, num_channels))
   return np.asarray(frame)

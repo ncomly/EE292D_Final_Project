@@ -7,22 +7,25 @@ import argparse
 import numpy as np
 import glob
 
-
-import keras
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Activation, Flatten
-from keras.layers import Conv2D, MaxPooling2D
 import tensorflow as tf
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-from torchvision import datasets
-from torchsummary import summary
+import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, Activation, Flatten
+from tensorflow.keras.layers import Conv2D, MaxPooling2D
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.losses import CategoricalCrossentropy
+from tensorflow.keras.metrics import TopKCategoricalAccuracy, Accuracy
 
-from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
-from ignite.metrics import Accuracy, Loss, TopKCategoricalAccuracy
+#import torch
+#import torch.nn as nn
+#import torch.optim as optim
+#import torch.nn.functional as F
+#from torchvision import datasets
+#from torchsummary import summary
+
+#from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
+#from ignite.metrics import Accuracy, Loss, TopKCategoricalAccuracy
 
 from tqdm import tqdm
 
@@ -37,8 +40,8 @@ from PIL import Image
 print("Process Number: ",os.getpid())
 
 SEED = 1
-torch.manual_seed(SEED)
-torch.cuda.manual_seed(SEED)
+#torch.manual_seed(SEED)
+#torch.cuda.manual_seed(SEED)
 
 tf.random.set_seed(SEED)
 np.random.seed(SEED)
@@ -51,7 +54,7 @@ use_gpu = False
 
 #torch.cuda.set_device(1)
 #device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-device = torch.device("cpu")
+#device = torch.device("cpu")
 
 #def data_loader(args):
 #    dsets = {x: LRW(x, args.dataset) for x in ['train', 'val', 'test']}
@@ -91,6 +94,79 @@ def showLR(optimizer):
 #    arrays = arrays / 255.
 #    return arrays
 
+def check_dataset(dataset, dir_name, img_type):
+    for i,example in enumerate(dataset.take(1)):
+        image, label = example
+        print("img shape:", image.numpy().shape)
+        #print("img: ", image.numpy())
+        print("img label: ", label)
+        image_shape = image.numpy().shape
+        for j in range(image_shape[-4]):
+            if img_type=='L':
+                img = Image.fromarray(image.numpy()[j,:,:,0], img_type)
+            else:
+                img = Image.fromarray(image.numpy()[j,:,:,:], img_type)
+            img.save(dir_name+'/test_img_'+str(j)+'.png')
+
+def _parse_function(example):
+    n_frames = 29
+    num_depth = 3
+    height = 96
+    width = 96
+    image_seq = []
+    for image_count in range(n_frames):
+        path = 'blob' + '/' + str(image_count)
+    
+        feature_description = {
+            path: tf.io.FixedLenFeature([], tf.string),
+            'label': tf.io.FixedLenFeature([], tf.int64),
+            'height': tf.io.FixedLenFeature([], tf.int64),
+            'width': tf.io.FixedLenFeature([], tf.int64),
+            'depth': tf.io.FixedLenFeature([], tf.int64)
+        }
+            
+        features = tf.io.parse_single_example(example, feature_description)
+        image_buffer = tf.reshape(features[path], shape=[])
+        image = tf.io.decode_raw(image_buffer, tf.uint8)
+        image = tf.reshape(image, tf.stack([height, width, num_depth]))
+        image = tf.reshape(image, [1, height, width, num_depth])
+#        image = image[:,:,:,0]# / tf.constant(255, shape=(1, height, width), dtype=tf.uint8) 
+        image_seq.append(image)
+#    image_seq = tf.reshape(image_seq, [1, n_frames, height, width])
+    image_seq = tf.concat(image_seq, 0)
+    label = features['label']
+    print("image: ", image_seq)
+    print("label: ", label)
+    return image_seq, label
+
+def video_left_right_flip(image):
+    image_seq = tf.unstack(image)
+    for i in range(len(image_seq)):
+        image_seq[i] = tf.image.flip_left_right(image_seq[i])
+    return tf.stack(image_seq)
+
+def _train_preprocess_function(image, label):
+    # Convert to grayscale
+    image = tf.image.rgb_to_grayscale(image)
+    # Take a random crop 88x88
+    image = tf.image.random_crop(image, size=[29, 88, 88,1])
+    # Randomly horizontal flip entire video
+    random_sample = tf.random.uniform(shape=[], minval=0, maxval=1, dtype=tf.float32)
+    condition = tf.less(random_sample, 0.5)
+    image = tf.cond(condition, 
+            lambda: video_left_right_flip(image),
+            lambda: tf.identity(image))
+    return image, label
+
+def _normalize_function(image, label):
+    # Normalize to [0,1]
+    image = tf.cast(image, tf.float32) * (1./255.) 
+    # Subtract mean, divide by std dev
+    mean = 0.413621
+    std = 0.1700239
+    image = (image - mean) * (1./std) 
+    return image, label
+
 def run(args, use_gpu=True):
     
     # saving
@@ -98,93 +174,50 @@ def run(args, use_gpu=True):
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
 
-    model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
-    model = reload_model(model, args.path) #.to(device)
-    #model = tf.keras.Sequential([
-    #    tf.keras.layers.Flatten(),
-    #    tf.keras.layers.Dense(10)
-    #])
+    #model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
+    #model = reload_model(model, args.path) #.to(device)
+    model = tf.keras.Sequential([
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dense(1)
+    ])
 
-    #raw_dataset = tf.data.TFRecordDataset("./test_tfrecord_gray_label/batch_620_of_1000.tfrecords")
-    tfrecords_list = glob.glob("./test_tfrecord_gray_label/*.tfrecords") 
-    raw_dataset = tf.data.TFRecordDataset(tfrecords_list)
-    print("raw_dataset: ", raw_dataset)
+    mode = "train"
+    
+    if mode=="train":
+        train_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
+        dataset = tf.data.TFRecordDataset(train_list)
+        val_dataset = dataset
+    print("raw_dataset: ", dataset)
 
-    n_frames = 29
-    num_depth = 3
-    height = 96
-    width = 96
-    def _parse_function(example):
-        image_seq = []
-        for image_count in range(n_frames):
-            path = 'blob' + '/' + str(image_count)
-            feature_description = {
-                path: tf.io.FixedLenFeature([], tf.string),
-                'label': tf.io.FixedLenFeature([], tf.int64),
-                'height': tf.io.FixedLenFeature([], tf.int64),
-                'width': tf.io.FixedLenFeature([], tf.int64),
-                'depth': tf.io.FixedLenFeature([], tf.int64)
-            }
-            features = tf.io.parse_single_example(example, feature_description)
-            image_buffer = tf.reshape(features[path], shape=[])
-            image = tf.io.decode_raw(image_buffer, tf.uint8)
-            image = tf.reshape(image, tf.stack([height, width, num_depth]))
-            image = tf.reshape(image, [1, height, width, num_depth])
-            image = image[:,:,:,0] / tf.constant(255, shape=(1, height, width), dtype=tf.uint8) 
-            image_seq.append(image)
-        image_seq = tf.reshape(image_seq, [1, n_frames, height, width])
-        image_seq = tf.concat(image_seq, 0)
-        label = features['label']
-        print("image_seq: ", image_seq)
-        print("label: ", label)
- 
-        inputs = image_seq
-        #inputs = RandomCrop(image_seq.numpy(), (88,88))
-        #inputs = ColorNormalization(inputs)
-        #inputs = HorizontalFlip(inputs)
-        return (inputs, label)
-
-    parsed_dataset = raw_dataset.map(_parse_function)
-    parsed_dataset = parsed_dataset.batch(16)
-    #parsed_dataset = parsed_dataset.shuffle(500).batch(16)
+    
+    dataset = dataset.map(_parse_function)
+    print("parsed_dataset: ", dataset)
 #    print(list(parsed_dataset.as_numpy_iterator()))
-    print("parsed_dataset: ",parsed_dataset)
+    #check_dataset(dataset, "test_images", 'RGB')
 
-    for i,example in enumerate(parsed_dataset.take(1)):
-        image, label = example
-        print("img shape:", image.numpy().shape)
-        #print("img: ", image.numpy())
-        print("img label: ", label)
-        for j in range(n_frames):
-            img = Image.fromarray(image.numpy()[0,0,j,:,:], 'L')
-            img.save('test_images/test_img_'+str(j)+'.png')
-#        break
+    if mode=="train":
+        dataset = dataset.map(_train_preprocess_function)
+    if mode=="test":
+        dataset = dataset.map(_test_preprocess_function)
+    #check_dataset(dataset, "test_images_processed", 'L')
+    print("processed_dataset: ", dataset)
+
+    dataset = dataset.map(_normalize_function)
+    print("normalized_dataset: ", dataset)
  
-    parsed_dataset = parsed_dataset.repeat(2) #2 epochs
+    dataset = dataset.shuffle(500).batch(16)
+#    dataset = dataset.batch(16)
+    dataset = dataset.repeat(2) #2 epochs
+
+    model.compile(optimizer=Adam(), 
+           loss=CategoricalCrossentropy(from_logits=True),
+           metrics=[Accuracy(), TopKCategoricalAccuracy(3) ]) 
+
+    if mode=="train":
+        model.fit(dataset, epochs=2, batch_size=16, validation_data=val_dataset)
+    else: 
+        model.evaluate(dataset, batch_size=16)
     
-#    sess = tf.compat.v1.Session()
-    
-#    iterator = tf.compat.v1.data.make_one_shot_iterator(parsed_dataset) #.make_one_shot_iterator()
-#    next_example, next_label = iterator.get_next()
-
-#    _, _, loss = model(next_example, next_label)
-#    training_op = tf.train.AdamOptimizer().minimize(loss)
-
-#    sess.run(tf.global_varaiables_initializer())
-
-#    start = time.time()
-#    for epoch in range(2):
-#        S = 0
-#        for batch in range(3):
-#            try:
-#                L, _ = sess.run([loss, training_op])
-#            except tf.errors.OutOfRangeError:
-#                break
-#            S += L
-#        if epoch % 100 == 0:
-#            print(S, S/3.0)
-#    print(time.time()-start, 's')
-
 #    dset_loaders, dset_sizes = data_loader(args)
 #    
 #    train_loader = dset_loaders['train']
@@ -202,11 +235,6 @@ def run(args, use_gpu=True):
 #    desc = "ITERATION - loss: {:.2f}"
     # pbar = tqdm(initial=0, leave=False, total=len(train_loader), desc=desc.format(0))
 
-    model.compile(optimizer='adam', 
-           loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-           metrics=['accuracy']) 
-    model.fit(parsed_dataset, epochs=2)
- 
  # Ignite trainer
 #    trainer = create_supervised_trainer(model, optimizer, F.cross_entropy, \
 #                                        device=device, prepare_batch=prepare_train_batch)

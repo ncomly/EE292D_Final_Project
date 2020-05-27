@@ -145,14 +145,15 @@ def run(args, use_gpu=True):
         return (inputs, label)
 
     parsed_dataset = raw_dataset.map(_parse_function)
-    parsed_dataset = parsed_dataset.shuffle(500).batch(16)
+    parsed_dataset = parsed_dataset.batch(16)
+    #parsed_dataset = parsed_dataset.shuffle(500).batch(16)
 #    print(list(parsed_dataset.as_numpy_iterator()))
     print("parsed_dataset: ",parsed_dataset)
 
     for i,example in enumerate(parsed_dataset.take(1)):
         image, label = example
         print("img shape:", image.numpy().shape)
-        print("img: ", image.numpy())
+        #print("img: ", image.numpy())
         print("img label: ", label)
         for j in range(n_frames):
             img = Image.fromarray(image.numpy()[0,0,j,:,:], 'L')
@@ -161,28 +162,28 @@ def run(args, use_gpu=True):
  
     parsed_dataset = parsed_dataset.repeat(2) #2 epochs
     
-    sess = tf.compat.v1.Session()
+#    sess = tf.compat.v1.Session()
     
-    iterator = tf.compat.v1.data.make_one_shot_iterator(parsed_dataset) #.make_one_shot_iterator()
-    next_example, next_label = iterator.get_next()
+#    iterator = tf.compat.v1.data.make_one_shot_iterator(parsed_dataset) #.make_one_shot_iterator()
+#    next_example, next_label = iterator.get_next()
 
-    _, _, loss = model(next_example, next_label)
-    training_op = tf.train.AdamOptimizer().minimize(loss)
+#    _, _, loss = model(next_example, next_label)
+#    training_op = tf.train.AdamOptimizer().minimize(loss)
 
-    sess.run(tf.global_varaiables_initializer())
+#    sess.run(tf.global_varaiables_initializer())
 
-    start = time.time()
-    for epoch in range(2):
-        S = 0
-        for batch in range(3):
-            try:
-                L, _ = sess.run([loss, training_op])
-            except tf.errors.OutOfRangeError:
-                break
-            S += L
-        if epoch % 100 == 0:
-            print(S, S/3.0)
-    print(time.time()-start, 's')
+#    start = time.time()
+#    for epoch in range(2):
+#        S = 0
+#        for batch in range(3):
+#            try:
+#                L, _ = sess.run([loss, training_op])
+#            except tf.errors.OutOfRangeError:
+#                break
+#            S += L
+#        if epoch % 100 == 0:
+#            print(S, S/3.0)
+#    print(time.time()-start, 's')
 
 #    dset_loaders, dset_sizes = data_loader(args)
 #    
@@ -201,10 +202,10 @@ def run(args, use_gpu=True):
 #    desc = "ITERATION - loss: {:.2f}"
     # pbar = tqdm(initial=0, leave=False, total=len(train_loader), desc=desc.format(0))
 
-#    model.compile(optimizer='adam', 
-#           loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-#           metrics=['accuracy']) 
-#    model.fit(parsed_dataset, epochs=2)
+    model.compile(optimizer='adam', 
+           loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+           metrics=['accuracy']) 
+    model.fit(parsed_dataset, epochs=2)
  
  # Ignite trainer
 #    trainer = create_supervised_trainer(model, optimizer, F.cross_entropy, \

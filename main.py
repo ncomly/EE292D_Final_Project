@@ -96,6 +96,7 @@ def showLR(optimizer):
 
 def check_dataset(dataset, dir_name, img_type):
     for i,example in enumerate(dataset.take(1)):
+        print(example)
         image, label = example
         print("img shape:", image.numpy().shape)
         #print("img: ", image.numpy())
@@ -158,6 +159,13 @@ def _train_preprocess_function(image, label):
             lambda: tf.identity(image))
     return image, label
 
+def _test_preprocess_function(image, label):
+    # Convert to grayscale
+    image = tf.image.rgb_to_grayscale(image)
+    # Take a center crop 88x88
+    image = tf.image.crop_to_bounding_box(image, 4, 4, 88, 88)
+    return image, label
+
 def _normalize_function(image, label):
     # Normalize to [0,1]
     image = tf.cast(image, tf.float32) * (1./255.) 
@@ -181,42 +189,56 @@ def run(args, use_gpu=True):
         tf.keras.layers.Dense(1)
     ])
 
-    mode = "train"
+    mode = "test" #"train"
+    
+    train_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
+    val_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
+    test_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
+#    train_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/train/*.tfrecords")
+#    val_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/val/*.tfrecords")
+#    test_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/test/*.tfrecords")
     
     if mode=="train":
-        train_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
         dataset = tf.data.TFRecordDataset(train_list)
-        val_dataset = dataset
+        val_dataset = tf.data.TFRecordDataset(val_list)
+    else:
+        dataset = tf.data.TFRecordDataset(test_list)
     print("raw_dataset: ", dataset)
 
-    
-    dataset = dataset.map(_parse_function)
-    print("parsed_dataset: ", dataset)
-#    print(list(parsed_dataset.as_numpy_iterator()))
-    #check_dataset(dataset, "test_images", 'RGB')
-
     if mode=="train":
+        dataset = dataset.map(_parse_function)
+        val_dataset = val_dataset.map(_parse_function)
+        check_dataset(dataset, "train_test_images", 'RGB')
+        
         dataset = dataset.map(_train_preprocess_function)
-    if mode=="test":
+        val_dataset = val_dataset.map(_test_preprocess_function)
+        check_dataset(dataset, "train_test_images_processed", 'L')
+        
+        dataset = dataset.map(_normalize_function)
+        val_dataset = val_dataset.map(_normalize_function)
+    
+        dataset = dataset.shuffle(500).batch(16)
+        val_dataset = val_dataset.batch(16)
+    
+    else:
+        dataset = dataset.map(_parse_function)
+        check_dataset(dataset, "test_test_images", 'RGB')
+
         dataset = dataset.map(_test_preprocess_function)
-    #check_dataset(dataset, "test_images_processed", 'L')
-    print("processed_dataset: ", dataset)
-
-    dataset = dataset.map(_normalize_function)
-    print("normalized_dataset: ", dataset)
+        check_dataset(dataset, "test_test_images_processed", 'L')
+        
+        dataset = dataset.map(_normalize_function)
+        
+        dataset = dataset.shuffle(500).batch(16)
  
-    dataset = dataset.shuffle(500).batch(16)
-#    dataset = dataset.batch(16)
-    dataset = dataset.repeat(2) #2 epochs
-
     model.compile(optimizer=Adam(), 
            loss=CategoricalCrossentropy(from_logits=True),
            metrics=[Accuracy(), TopKCategoricalAccuracy(3) ]) 
 
     if mode=="train":
-        model.fit(dataset, epochs=2, batch_size=16, validation_data=val_dataset)
+        model.fit(dataset, epochs=2, validation_data=val_dataset)
     else: 
-        model.evaluate(dataset, batch_size=16)
+        model.evaluate(dataset)
     
 #    dset_loaders, dset_sizes = data_loader(args)
 #    

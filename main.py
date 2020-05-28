@@ -66,26 +66,33 @@ use_gpu = False
 #    # dset_loaders['train'] , dset_loaders['val']
 #    return dset_loaders, dset_sizes
 
-def reload_model(model, path=""):
-    if not bool(path):
-        print('train from scratch')
-        return model
+#def reload_model(model, path=""):
+#    if not bool(path):
+#        print('train from scratch')
+#        return model
+#    else:
+#        model_dict = model.state_dict()
+#        pretrained_dict = torch.load(path)
+#        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+#        model_dict.update(pretrained_dict)
+#        model.load_state_dict(model_dict)
+#        print('*** model has been successfully loaded! ***')
+#        return model
+
+
+#def showLR(optimizer):
+#    lr = []
+#    for param_group in optimizer.param_groups:
+#        lr += [param_group['lr']]
+#    return lr
+
+def lr_scheduler(epoch):
+    sleep_epochs = args.lr_sleep_epochs
+    half = sleep_epochs
+    if epoch < sleep_epochs:
+        return args.lr
     else:
-        model_dict = model.state_dict()
-        pretrained_dict = torch.load(path)
-        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-        model_dict.update(pretrained_dict)
-        model.load_state_dict(model_dict)
-        print('*** model has been successfully loaded! ***')
-        return model
-
-
-def showLR(optimizer):
-    lr = []
-    for param_group in optimizer.param_groups:
-        lr += [param_group['lr']]
-    return lr
-
+        return ars.lr * tf.math.pow(0.5, (epoch-sleep_epochs+1)/float(half))
 #def load_file(filename):
 #    cap = np.load(filename)
 #    cap = tf.io.read_file(filename)
@@ -189,7 +196,10 @@ def run(args, use_gpu=True):
         tf.keras.layers.Dense(1)
     ])
 
-    mode = "train"
+    if args.train==True:
+        mode = "train"
+    else:
+        mode = "test"
     
 #    train_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
 #    val_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
@@ -235,8 +245,26 @@ def run(args, use_gpu=True):
            loss=CategoricalCrossentropy(from_logits=True),
            metrics=[Accuracy(), TopKCategoricalAccuracy(3) ]) 
 
+    callbacks = [
+        # Interrupt training if `val_loss` stops improving for over 2 epochs
+  	tf.keras.callbacks.EarlyStopping(patience=2, monitor='val_loss'),
+        # Learning rate scheduler
+#        tf.keras.callbacks.LearningRateScheduler(lr_scheduler),
+        # Save checkpoints
+        tf.keras.callbacks.ModelCheckpoint(filepath=args.run_dir+'/checkpoints', mode='max')
+  	# Write TensorBoard logs to `./logs` directory
+  	tf.keras.callbacks.TensorBoard(log_dir=args.run_dir+'/logs') 
+    ]
+
+    if args.checkpoint:
+        print("Loading weights from: ", args.checkpoint)
+        model.load_weights(args.checkpoint)
+    else:
+        print("Model training from scratch")
+
     if mode=="train":
-        model.fit(dataset, epochs=2, validation_data=val_dataset)
+        model.fit(dataset, epochs=2, callbacks=callbacks, validation_data=val_dataset)
+        model.save_weights(args.run_dir + '/weights/Conv3D_model')
     else: 
         model.evaluate(dataset)
     

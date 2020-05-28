@@ -272,6 +272,8 @@ def run(args, use_gpu=True):
         print("Model training from scratch")
 
     if mode=="train":
+        print("Begin training ...")
+        print(dataset)
         model.fit(dataset, epochs=2, callbacks=callbacks, validation_data=val_dataset)
         #model.save_weights(args.save_path +'/final_weights/Conv3D_model')
     else: 

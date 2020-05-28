@@ -17,6 +17,8 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.keras.metrics import TopKCategoricalAccuracy, Accuracy
 
+from datetime import datetime
+
 #import torch
 #import torch.nn as nn
 #import torch.optim as optim
@@ -86,13 +88,13 @@ use_gpu = False
 #        lr += [param_group['lr']]
 #    return lr
 
-def lr_scheduler(epoch):
-    sleep_epochs = args.lr_sleep_epochs
-    half = sleep_epochs
+def lr_scheduler(epoch, lr):
+    sleep_epochs = 5
+    half = sleep_epochs 
     if epoch < sleep_epochs:
-        return args.lr
+        return lr
     else:
-        return ars.lr * tf.math.pow(0.5, (epoch-sleep_epochs+1)/float(half))
+        return lr * tf.math.pow(0.5, (epoch-sleep_epochs+1)/float(half))
 #def load_file(filename):
 #    cap = np.load(filename)
 #    cap = tf.io.read_file(filename)
@@ -241,30 +243,37 @@ def run(args, use_gpu=True):
         
         dataset = dataset.batch(16)
  
-    model.compile(optimizer=Adam(), 
+    model.compile(optimizer=Adam(learning_rate = args.lr), 
            loss=CategoricalCrossentropy(from_logits=True),
            metrics=[Accuracy(), TopKCategoricalAccuracy(3) ]) 
 
+    run_dir = args.save_path + datetime.now().strftime("%Y%m%d-%H%M%S")
     callbacks = [
         # Interrupt training if `val_loss` stops improving for over 2 epochs
   	tf.keras.callbacks.EarlyStopping(patience=2, monitor='val_loss'),
         # Learning rate scheduler
-#        tf.keras.callbacks.LearningRateScheduler(lr_scheduler),
+        tf.keras.callbacks.LearningRateScheduler(lr_scheduler),
         # Save checkpoints
-        tf.keras.callbacks.ModelCheckpoint(filepath=args.run_dir+'/checkpoints', mode='max')
+        tf.keras.callbacks.ModelCheckpoint(
+            filepath=run_dir+'/checkpoints/Conv3D_model_{epoch}', 
+            #save_weights_only=True,
+            save_best_only=True,
+            monitor='val_loss'
+        ),
   	# Write TensorBoard logs to `./logs` directory
-  	tf.keras.callbacks.TensorBoard(log_dir=args.run_dir+'/logs') 
+  	tf.keras.callbacks.TensorBoard(log_dir=run_dir+'/logs') 
     ]
 
     if args.checkpoint:
-        print("Loading weights from: ", args.checkpoint)
-        model.load_weights(args.checkpoint)
+        print("Loading model from: ", args.checkpoint)
+        #model.load_weights(args.checkpoint)
+        model = tf.keras.models.load_model(args.checkpoint)
     else:
         print("Model training from scratch")
 
     if mode=="train":
         model.fit(dataset, epochs=2, callbacks=callbacks, validation_data=val_dataset)
-        model.save_weights(args.run_dir + '/weights/Conv3D_model')
+        #model.save_weights(args.save_path +'/final_weights/Conv3D_model')
     else: 
         model.evaluate(dataset)
     

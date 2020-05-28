@@ -20,7 +20,7 @@ class LipResBlock(tf.keras.Model):
         self.conv1 = Conv2D (mid_planes, kernel_size=1, use_bias=False, kernel_initializer=initializer)
         self.bn1   = BatchNormalization (momentum=0.1, epsilon=1e-5)
 
-        self.depth = DepthwiseConv2D (kernel_size=3, use_bias=False, kernel_initializer=initializer)
+        self.depth = DepthwiseConv2D (kernel_size=3, use_bias=False, kernel_initializer=initializer, padding='same')
         self.bn2   = BatchNormalization (momentum=0.1, epsilon=1e-5)
 
         self.conv3 = Conv2D (out_planes, kernel_size=1, use_bias=False, strides=(stride,stride), kernel_initializer=initializer)

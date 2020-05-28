@@ -30,7 +30,7 @@ class ResNet(tf.keras.Model):
         self.layer4   = self._make_layer(block, 512, num_blocks[3], stride=2)
         self.fc       = Dense(num_classes, input_shape=(512,))
         self.bnfc     = BatchNormalization(momentum=0.1, epsilon=1e-5)
-        self.avgpoool = AveragePooling2D()
+        self.avgpool = AveragePooling2D()
 
         # TODO: weight initialization port -> done in depthwise.py
         # for m in self.modules():
@@ -60,7 +60,7 @@ class ResNet(tf.keras.Model):
 
         x = self.avgpool(x)
         # 464 512 1 1
-        x = tf.reshape(x, (x.shape[0], -1))
+        x = tf.reshape(x, [x.shape[0], -1])
         # 464 512
         x = self.fc(x)
         x = self.bnfc(x)
@@ -123,11 +123,11 @@ class LipNext(tf.keras.Model):
         
         #x = x.view(-1, 64, x.size(3), x.size(4))
         # TODO
-        x = tf.reshape(x, (-1, 64, x.shape[3], x.shape[4]))
+        x = tf.reshape(x, [-1, 64, x.shape[3], x.shape[4]])
         # 464, 64, 22, 22
         x = self.resnet34(x)
         # 464 256
-        x = tf.reshape(x, (-1, self.frameLen, self.inputDim))
+        x = tf.reshape(x, [-1, self.frameLen, self.inputDim])
        # # 16 29 256
         x = tf.transpose(x, perm=[0, 2, 1, 3, 4])
         #x = x.transpose(1, 2)

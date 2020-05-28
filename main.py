@@ -96,7 +96,7 @@ def showLR(optimizer):
 
 def check_dataset(dataset, dir_name, img_type):
     for i,example in enumerate(dataset.take(1)):
-        print(example)
+        #print(example)
         image, label = example
         print("img shape:", image.numpy().shape)
         #print("img: ", image.numpy())
@@ -189,14 +189,14 @@ def run(args, use_gpu=True):
         tf.keras.layers.Dense(1)
     ])
 
-    mode = "test" #"train"
+    mode = "train"
     
-    train_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
-    val_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
-    test_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
-#    train_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/train/*.tfrecords")
-#    val_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/val/*.tfrecords")
-#    test_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/test/*.tfrecords")
+#    train_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
+#    val_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
+#    test_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
+    train_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/train/*.tfrecords")
+    val_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/val/*.tfrecords")
+    test_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/test/*.tfrecords")
     
     if mode=="train":
         dataset = tf.data.TFRecordDataset(train_list)
@@ -208,11 +208,11 @@ def run(args, use_gpu=True):
     if mode=="train":
         dataset = dataset.map(_parse_function)
         val_dataset = val_dataset.map(_parse_function)
-        check_dataset(dataset, "train_test_images", 'RGB')
+        #check_dataset(dataset, "train_test_images", 'RGB')
         
         dataset = dataset.map(_train_preprocess_function)
         val_dataset = val_dataset.map(_test_preprocess_function)
-        check_dataset(dataset, "train_test_images_processed", 'L')
+        #check_dataset(dataset, "train_test_images_processed", 'L')
         
         dataset = dataset.map(_normalize_function)
         val_dataset = val_dataset.map(_normalize_function)
@@ -222,14 +222,14 @@ def run(args, use_gpu=True):
     
     else:
         dataset = dataset.map(_parse_function)
-        check_dataset(dataset, "test_test_images", 'RGB')
+        #check_dataset(dataset, "test_test_images", 'RGB')
 
         dataset = dataset.map(_test_preprocess_function)
-        check_dataset(dataset, "test_test_images_processed", 'L')
+        #check_dataset(dataset, "test_test_images_processed", 'L')
         
         dataset = dataset.map(_normalize_function)
         
-        dataset = dataset.shuffle(500).batch(16)
+        dataset = dataset.batch(16)
  
     model.compile(optimizer=Adam(), 
            loss=CategoricalCrossentropy(from_logits=True),

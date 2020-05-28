@@ -191,12 +191,12 @@ def run(args, use_gpu=True):
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
 
-    #model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
+    model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
     #model = reload_model(model, args.path) #.to(device)
-    model = tf.keras.Sequential([
-        tf.keras.layers.Flatten(),
-        tf.keras.layers.Dense(1)
-    ])
+    #model = tf.keras.Sequential([
+    #    tf.keras.layers.Flatten(),
+    #    tf.keras.layers.Dense(1)
+    #])
 
     if args.train==True:
         mode = "train"

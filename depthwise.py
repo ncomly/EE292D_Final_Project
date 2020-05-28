@@ -2,7 +2,7 @@
 import tensorflow as tf
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Conv2D, BatchNormalization, DepthwiseConv2D
-#import keras
+import keras
 #from keras.models import Sequential
 #from keras.layers import Conv2D, BatchNormalization, DepthwiseConv2D
 
@@ -33,13 +33,13 @@ class LipResBlock(tf.keras.Model):
     def call(self, x):
         out = keras.activations.relu(self.bn1(self.conv1(x)))
 
-        self.int_nchw = out.size()
+        self.int_nchw = out.shape
 
         out = self.bn2(self.depth(out))
 
         out = self.bn3(self.conv3(out))
 
-        self.out_nchw = out.size
+        self.out_nchw = out.shape
 
         out += self.shortcut(x)
         out = keras.activations.relu(out)

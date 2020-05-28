@@ -119,27 +119,23 @@ class LipNext(tf.keras.Model):
         x = self.frontend3D(x)
         # 16, 64, 29, 22,22
         x = tf.transpose(x, perm=[0, 2, 1, 3, 4])
-        #x = x.transpose(1, 2)
         # 16, 29, 64 , 22, 22
-        #x = x.contiguous()
         
         #x = x.view(-1, 64, x.size(3), x.size(4))
         # TODO
-        x = tf.reshape(x) 
+        x = tf.reshape(x, [-1, 64, x.shape[3], x.shape[4]])
         # 464, 64, 22, 22
         x = self.resnet34(x)
         # 464 256
-        x = x.view(-1, self.frameLen, self.inputDim)
+        x = tf.reshape(x, [-1, self.frameLen, self.inputDim])
        # # 16 29 256
         x = tf.transpose(x, perm=[0, 2, 1, 3, 4])
         #x = x.transpose(1, 2)
         # 16 256 29
         x = self.backend_conv1(x)
-        # TO FIX
-        #x = torch.mean(x,2)
-        # x = x.view(-1, 4, 16, 16)
+
+        x = tf.math.reduce_mean(x, axis=2)
         x = self.backend_conv2(x)
-        # x = x.view(-1, self.nClasses)
         return x
 
     def _initialize_weights(self):

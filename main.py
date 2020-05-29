@@ -248,7 +248,7 @@ def run(args, use_gpu=True):
     #check_dataset(dataset, "test_test_images_processed", 'L')
     model.compile(optimizer=Adam(learning_rate = args.lr), 
            loss=CategoricalCrossentropy(from_logits=True),
-           metrics=[Accuracy(), TopKCategoricalAccuracy(3) ]) 
+           metrics=['accuracy', TopKCategoricalAccuracy(3) ]) 
 
     run_dir = args.save_path + datetime.now().strftime("%Y%m%d-%H%M%S")
     callbacks = [
@@ -275,7 +275,7 @@ def run(args, use_gpu=True):
         print("Model training from scratch")
 
     if mode=="train":
-        model.fit(dataset, epochs=2, callbacks=callbacks, validation_data=val_dataset)
+        model.fit(dataset, epochs=args.epochs, callbacks=callbacks, validation_data=val_dataset)
         #model.save_weights(args.save_path +'/final_weights/Conv3D_model')
     else: 
         model.evaluate(dataset)

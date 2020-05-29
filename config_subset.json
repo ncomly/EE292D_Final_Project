@@ -6,7 +6,7 @@
     "lr_sleep_epochs": 5,
     "batch_size": 16,
     "workers": 4,
-    "epochs": 50,
+    "epochs": 5,
     "interval": 5,
     "test": 0,
     "alpha": 2,

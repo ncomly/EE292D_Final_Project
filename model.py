@@ -151,7 +151,7 @@ class LipNext(tf.keras.Model):
         x = tf.math.reduce_mean(x, axis=1)
         print(f'post reduce {x.shape}')
         x = self.backend_conv2(x)
-        print('forward pass done')
+        print(f'forward pass done: {x}')
         return x
 
     def _initialize_weights(self):

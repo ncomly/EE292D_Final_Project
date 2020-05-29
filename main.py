@@ -175,14 +175,17 @@ def _test_preprocess_function(image, label):
     image = tf.image.crop_to_bounding_box(image, 4, 4, 88, 88)
     return image, label
 
-def _normalize_function(image, label):
+def _normalize_function(image, label, n=130):
     # Normalize to [0,1]
     image = tf.cast(image, tf.float32) * (1./255.) 
     # Subtract mean, divide by std dev
     mean = 0.413621
     std = 0.1700239
-    image = (image - mean) * (1./std) 
-    return image, label
+    image = (image - mean) * (1./std)
+    f, h, w, = image.shape[:-1]
+    image = tf.reshape(image[:,:,:,0], [f,h,w,1])
+    y = tf.keras.backend.one_hot(label, n)
+    return image, y
 
 def run(args, use_gpu=True):
     
@@ -191,12 +194,12 @@ def run(args, use_gpu=True):
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
 
-    #model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
+    model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
     #model = reload_model(model, args.path) #.to(device)
-    model = tf.keras.Sequential([
-        tf.keras.layers.Flatten(),
-        tf.keras.layers.Dense(1)
-    ])
+    #model = tf.keras.Sequential([
+    #    tf.keras.layers.Flatten(),
+    #    tf.keras.layers.Dense(1)
+    #])
 
     if args.train==True:
         mode = "train"
@@ -237,12 +240,12 @@ def run(args, use_gpu=True):
         #check_dataset(dataset, "test_test_images", 'RGB')
 
         dataset = dataset.map(_test_preprocess_function)
-        #check_dataset(dataset, "test_test_images_processed", 'L')
         
         dataset = dataset.map(_normalize_function)
         
         dataset = dataset.batch(16)
  
+    #check_dataset(dataset, "test_test_images_processed", 'L')
     model.compile(optimizer=Adam(learning_rate = args.lr), 
            loss=CategoricalCrossentropy(from_logits=True),
            metrics=[Accuracy(), TopKCategoricalAccuracy(3) ]) 

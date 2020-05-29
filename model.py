@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 #import keras
 from depthwise import *
-from tensorflow.keras.layers import Dense, ReLU
+from tensorflow.keras.layers import Input, Dense, ReLU, Flatten, Permute
 from tensorflow.keras.layers import Conv1D, Conv2D, Conv3D, ZeroPadding3D
 from tensorflow.keras.layers import BatchNormalization, AveragePooling2D, MaxPool1D
 from tensorflow.keras.models import Model
@@ -28,7 +28,8 @@ class ResNet(tf.keras.Model):
         self.layer2   = self._make_layer(block, 128, num_blocks[1], stride=2)
         self.layer3   = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4   = self._make_layer(block, 512, num_blocks[3], stride=2)
-        self.fc       = Dense(num_classes, input_shape=(512,))
+        self.flatten  = Flatten()
+        self.fc       = Dense(num_classes)
         self.bnfc     = BatchNormalization(momentum=0.1, epsilon=1e-5)
         self.avgpool = AveragePooling2D()
 
@@ -60,8 +61,9 @@ class ResNet(tf.keras.Model):
 
         x = self.avgpool(x)
         # 464 512 1 1
-        x = tf.reshape(x, [x.shape[0], -1])
+        x = self.flatten(x)
         # 464 512
+        # x = self.inp(x)
         x = self.fc(x)
         x = self.bnfc(x)
         return x
@@ -81,17 +83,18 @@ class LipNext(tf.keras.Model):
         self.alpha = alpha
         # frontend3D
         self.frontend3D = Sequential ( [
-                ZeroPadding3D(padding=(1,1,1)), #input_shape=(1,29,96,96)), # double check channel placement
-                Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer, padding='same'),
+                ZeroPadding3D(padding=(1,1,1),), #input_shape=(1,29,96,96)), # double check channel placement
+                Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer, padding='valid'),
                 BatchNormalization(momentum=.1, epsilon=1e-5), # should this be .9 instead?
                 ReLU(), # check in place?
                 # group convolution - TODO: THIS IS NOT RIGHT
-                ZeroPadding3D(padding=(1,1,1)), # double check channel placement
-                Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer, padding='same'),
+                ZeroPadding3D(padding=(1,1,1)),
+                Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer, padding='valid'),
                 ZeroPadding3D(padding=(1,0,0)), # double check channel placement
                 Conv3D(64, kernel_size=(3,1,1), strides=(1,1,1), use_bias=False, kernel_initializer=initializer, padding='valid')
             ] )
         # resnet
+        self.permute1 = Permute((1,4,2,3))
         self.resnet34 = LipRes(self.alpha)
         # backend
         self.backend_conv1 = Sequential ( [  
@@ -103,7 +106,7 @@ class LipNext(tf.keras.Model):
                 BatchNormalization(momentum=0.1, epsilon=1e-5),
                 ReLU()
             ] )
-
+        self.permute2 = Permute((2,1))
         self.backend_conv2 = Sequential ( [
                 Dense(self.inputDim, input_shape=(4 * self.inputDim, )),
                 BatchNormalization(momentum=0.1, epsilon=1e-5),
@@ -115,27 +118,40 @@ class LipNext(tf.keras.Model):
         # self._initialize_weights()
 
     def call(self, x):
+        print(f'input{x.shape}')
         # TODO: direct copy need to check all of this at runtime
         x = self.frontend3D(x)
-        # 16, 64, 29, 22,22
-        x = tf.transpose(x, perm=[0, 2, 1, 3, 4])
+        # 16, 29, 22,22, 64
+        print(f'frontend3D{x.shape}')
+        # x = tf.transpose(x, perm=[0, 2, 1, 3, 4])
+        #x = self.permute1(x)
         # 16, 29, 64 , 22, 22
         
+        print(f'permute1{x.shape}')
         #x = x.view(-1, 64, x.size(3), x.size(4))
         # TODO
-        x = tf.reshape(x, [-1, 64, x.shape[3], x.shape[4]])
+        x = tf.reshape(x, [-1,  x.shape[2], x.shape[3], 64])
+        #x = tf.reshape(x, [-1, 64, x.shape[3], x.shape[4]])
         # 464, 64, 22, 22
+        print(f'reshape{x.shape}')
         x = self.resnet34(x)
         # 464 256
+        print(f'resnet34{x.shape}')
         x = tf.reshape(x, [-1, self.frameLen, self.inputDim])
        # # 16 29 256
-        x = tf.transpose(x, perm=[0, 2, 1, 3, 4])
+        print(f'reshape{x.shape}')
+        #x = tf.transpose(x, perm=[0, 2, 1, 3, 4])
+        #x = self.permute2(x)
         #x = x.transpose(1, 2)
         # 16 256 29
+        print(f'permute2{x.shape}')
         x = self.backend_conv1(x)
 
-        x = tf.math.reduce_mean(x, axis=2)
+        print(f'pre reduce {x.shape}')
+        x = tf.math.reduce_mean(x, axis=1)
+        print(f'post reduce {x.shape}')
         x = self.backend_conv2(x)
+        print('forward pass done')
         return x
 
     def _initialize_weights(self):

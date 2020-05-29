@@ -116,7 +116,9 @@ class LipNext(nn.Module):
         x = x.transpose(1, 2)
         # 16 256 29
         x = self.backend_conv1(x)
+        print(x.shape)
         x = torch.mean(x,2)
+        print(x.shape)
         # x = x.view(-1, 4, 16, 16)
         x = self.backend_conv2(x)
         # x = x.view(-1, self.nClasses)

@@ -175,7 +175,7 @@ def _test_preprocess_function(image, label):
     image = tf.image.crop_to_bounding_box(image, 4, 4, 88, 88)
     return image, label
 
-def _normalize_function(image, label, n=130):
+def _normalize_function(image, label, n=5):
     # Normalize to [0,1]
     image = tf.cast(image, tf.float32) * (1./255.) 
     # Subtract mean, divide by std dev
@@ -209,9 +209,21 @@ def run(args, use_gpu=True):
 #    train_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
 #    val_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
 #    test_list = glob.glob("./test_tfrecord_ACTUALLY_color/*.tfrecords") 
-    train_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/train/*.tfrecords")
-    val_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/val/*.tfrecords")
-    test_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/test/*.tfrecords")
+    #train_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/train/*.tfrecords")
+    #val_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/val/*.tfrecords")
+    #test_list = glob.glob("/mnt/disks/data/dataset/lipread_tfrecords/*/test/*.tfrecords")
+
+    with open(args.labels) as f:
+        labels = f.read().splitlines()
+    train_list = []
+    val_list = []
+    test_list = []
+    for word in labels:
+        print(word)
+        train_list.extend(glob.glob(args.dataset + word + '/train/*.tfrecords'))
+        val_list.extend(glob.glob(args.dataset + word + '/val/*.tfrecords'))
+        test_list.extend(glob.glob(args.dataset + word + '/test/*.tfrecords'))
+
     
     if mode=="train":
         dataset = tf.data.TFRecordDataset(train_list)
@@ -253,9 +265,9 @@ def run(args, use_gpu=True):
     run_dir = args.save_path + datetime.now().strftime("%Y%m%d-%H%M%S")
     callbacks = [
         # Interrupt training if `val_loss` stops improving for over 2 epochs
-  	tf.keras.callbacks.EarlyStopping(patience=2, monitor='val_loss'),
+  	# tf.keras.callbacks.EarlyStopping(patience=2, monitor='val_loss'),
         # Learning rate scheduler
-        tf.keras.callbacks.LearningRateScheduler(lr_scheduler),
+        #tf.keras.callbacks.LearningRateScheduler(lr_scheduler),
         # Save checkpoints
         tf.keras.callbacks.ModelCheckpoint(
             filepath=run_dir+'/checkpoints/Conv3D_model_{epoch}', 

@@ -118,40 +118,29 @@ class LipNext(tf.keras.Model):
         # self._initialize_weights()
 
     def call(self, x):
-        print(f'input{x.shape}')
-        # TODO: direct copy need to check all of this at runtime
+        # Shape: None, 29, 88, 88, 1
+       
         x = self.frontend3D(x)
-        # 16, 29, 22,22, 64
-        print(f'frontend3D{x.shape}')
-        # x = tf.transpose(x, perm=[0, 2, 1, 3, 4])
-        #x = self.permute1(x)
-        # 16, 29, 64 , 22, 22
+        # Shape: None, 29, 22, 22, 64
         
-        print(f'permute1{x.shape}')
-        #x = x.view(-1, 64, x.size(3), x.size(4))
-        # TODO
         x = tf.reshape(x, [-1,  x.shape[2], x.shape[3], 64])
-        #x = tf.reshape(x, [-1, 64, x.shape[3], x.shape[4]])
-        # 464, 64, 22, 22
-        print(f'reshape{x.shape}')
+        # Shape: None, 22, 22, 64
+        
         x = self.resnet34(x)
-        # 464 256
-        print(f'resnet34{x.shape}')
+        # Shape: None, 256
+        
         x = tf.reshape(x, [-1, self.frameLen, self.inputDim])
-       # # 16 29 256
-        print(f'reshape{x.shape}')
-        #x = tf.transpose(x, perm=[0, 2, 1, 3, 4])
-        #x = self.permute2(x)
-        #x = x.transpose(1, 2)
-        # 16 256 29
-        print(f'permute2{x.shape}')
+        # Shape: None, 29, 256
+        
         x = self.backend_conv1(x)
-
-        print(f'pre reduce {x.shape}')
+        # Shape: None, 1, 1024
+        
         x = tf.math.reduce_mean(x, axis=1)
-        print(f'post reduce {x.shape}')
+        # Shape: None, 1024
+        
         x = self.backend_conv2(x)
-        print(f'forward pass done: {x}')
+        # Shape: None, nClasses
+
         return x
 
     def _initialize_weights(self):

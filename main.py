@@ -175,7 +175,7 @@ def _test_preprocess_function(image, label):
     image = tf.image.crop_to_bounding_box(image, 4, 4, 88, 88)
     return image, label
 
-def _normalize_function(image, label, n=5):
+def _normalize_function(image, label, n=130):
     # Normalize to [0,1]
     image = tf.cast(image, tf.float32) * (1./255.) 
     # Subtract mean, divide by std dev
@@ -223,7 +223,10 @@ def run(args, use_gpu=True):
         train_list.extend(glob.glob(args.dataset + word + '/train/*.tfrecords'))
         val_list.extend(glob.glob(args.dataset + word + '/val/*.tfrecords'))
         test_list.extend(glob.glob(args.dataset + word + '/test/*.tfrecords'))
-
+    # randomly shuffle *_list
+    np.random.shuffle(train_list)
+    np.random.shuffle(val_list)
+    np.random.shuffle(test_list)
     
     if mode=="train":
         dataset = tf.data.TFRecordDataset(train_list)
@@ -241,8 +244,8 @@ def run(args, use_gpu=True):
         val_dataset = val_dataset.map(_test_preprocess_function)
         #check_dataset(dataset, "train_test_images_processed", 'L')
         
-        dataset = dataset.map(_normalize_function)
-        val_dataset = val_dataset.map(_normalize_function)
+        dataset = dataset.map(lambda x, y: _normalize_function(x,y, args.nClasses))
+        val_dataset = val_dataset.map(lambda x, y: _normalize_function(x, y, args.nClasses))
     
         dataset = dataset.shuffle(500).batch(16)
         val_dataset = val_dataset.batch(16)
@@ -253,14 +256,14 @@ def run(args, use_gpu=True):
 
         dataset = dataset.map(_test_preprocess_function)
         
-        dataset = dataset.map(_normalize_function)
+        dataset = dataset.map(lambda x, y: _normalize_function(x,y, args.nClasses))
         
         dataset = dataset.batch(16)
  
     #check_dataset(dataset, "test_test_images_processed", 'L')
     model.compile(optimizer=Adam(learning_rate = args.lr), 
            loss=CategoricalCrossentropy(from_logits=True),
-           metrics=['accuracy', TopKCategoricalAccuracy(3) ]) 
+           metrics=['accuracy', TopKCategoricalAccuracy(3),keras.metrics.CategoricalAccuracy() ]) 
 
     run_dir = args.save_path + datetime.now().strftime("%Y%m%d-%H%M%S")
     callbacks = [

@@ -64,14 +64,16 @@ class TemporalShift(Model):
     def call(self, x):
         size = x.shape
         x = tf.reshape(x, [-1, 29, size[1], size[2], size[3]])
-        print(x)
-        pre_x, post_x, _ = tf.split(x, [size[3] // 4, size[3] // 4, size[3] // 2], 4)
+        
+        pre_x, post_x, peri_x = tf.split(x, [size[3] // 4, size[3] // 4, size[3] // 2], 4)
+        del x
         #print(pre_x, post_x, peri_x)
         #pre_x  = tf.concat((pre_x [:, -1:, :, :, :], pre_x [:, :-1, :, :, :]), 1)
         tf.roll(pre_x, 1, 1)
         tf.roll(post_x, -1, 1)
         #post_x = tf.concat((post_x[:,  1:, :, :, :], post_x[:, :1 , :, :, :]), 1)
-        return tf.reshape(tf.concat((pre_x, post_x, x[:, :, :, :, size[3]//2:]), 4), size)
+        #return x
+        return tf.reshape(tf.concat((pre_x, post_x, peri_x), 4), size)
         #return self.forward(inputs)
 
 

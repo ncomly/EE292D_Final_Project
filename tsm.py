@@ -53,7 +53,8 @@ class TemporalShift(Model):
             print(x)
             print(out.shape)
             print(out[:, :-1, :fold].shape)
-            out[:, :-1, :fold] = x[:, 1:, :fold]  # shift left
+            #out[:, :-1, :fold] = x[:, 1:, :fold]  # shift left
+            out[:, :-1, :fold] = tf.slice(x,[0,0,0,1,0], [x.shape[0],x.shape[1], x.shape[2], x.shape[3]-1, fold] )  # shift left
             out[:, 1:, fold: 2 * fold] = x[:, :-1, fold: 2 * fold]  # shift right
             out[:, :, 2 * fold:] = x[:, :, 2 * fold:]  # not shift
 

@@ -9,6 +9,7 @@ from tensorflow.keras.layers import Input, Dense, ReLU, Flatten, Permute
 from tensorflow.keras.layers import Conv1D, Conv2D, Conv3D, ZeroPadding3D
 from tensorflow.keras.layers import BatchNormalization, AveragePooling2D, MaxPool1D
 from tensorflow.keras.models import Model
+from DepthwiseConv3D import DepthwiseConv3D
 
 def LipRes(alpha=2, reduction=1, num_classes=256):
     block = lambda in_planes, planes, stride: \
@@ -82,17 +83,34 @@ class LipNext(tf.keras.Model):
         self.nLayers = 2
         self.alpha = alpha
         # frontend3D
+        #self.frontend3D = Sequential ( [
+        #        ZeroPadding3D(padding=(1,1,1),), #input_shape=(1,29,96,96)), # double check channel placement
+        #        Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer, padding='valid'),
+        #        BatchNormalization(momentum=.1, epsilon=1e-5), # should this be .9 instead?
+        #        ReLU(), # check in place?
+        #        # group convolution - TODO: THIS IS NOT RIGHT
+        #        ZeroPadding3D(padding=(1,1,1)),
+        #        Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer, padding='valid'),
+        #        ZeroPadding3D(padding=(1,0,0)), # double check channel placement
+        #        Conv3D(64, kernel_size=(3,1,1), strides=(1,1,1), use_bias=False, kernel_initializer=initializer, padding='valid')
+        #    ] )
         self.frontend3D = Sequential ( [
                 ZeroPadding3D(padding=(1,1,1),), #input_shape=(1,29,96,96)), # double check channel placement
                 Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer, padding='valid'),
                 BatchNormalization(momentum=.1, epsilon=1e-5), # should this be .9 instead?
                 ReLU(), # check in place?
                 # group convolution - TODO: THIS IS NOT RIGHT
-                ZeroPadding3D(padding=(1,1,1)),
-                Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer, padding='valid'),
-                ZeroPadding3D(padding=(1,0,0)), # double check channel placement
-                Conv3D(64, kernel_size=(3,1,1), strides=(1,1,1), use_bias=False, kernel_initializer=initializer, padding='valid')
-            ] )
+                ZeroPadding3D(padding=(1,1,1)),])
+        #        Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer, padding='valid'),
+        #        ZeroPadding3D(padding=(1,0,0)), # double check channel placement
+        #        Conv3D(64, kernel_size=(3,1,1), strides=(1,1,1), use_bias=False, kernel_initializer=initializer, padding='valid')
+        #    ] )
+        
+        self.perm1 = Permute((4,1,2,3))
+        self.DConv3D = DepthwiseConv3D(kernel_size=(3,3,3), depth_multiplier=1, strides=(1,2,2), use_bias=False, data_format='channels_last')
+        self.perm2 = Permute((2,3,4,1))
+        self.pad1 = ZeroPadding3D(padding=(1,0,0)) # double check channel placement
+        self.front_conv3d = Conv3D(64, kernel_size=(3,1,1), strides=(1,1,1), use_bias=False, kernel_initializer=initializer, padding='valid')
         # resnet
         self.permute1 = Permute((1,4,2,3))
         self.resnet34 = LipRes(self.alpha)
@@ -121,7 +139,18 @@ class LipNext(tf.keras.Model):
         # Shape: None, 29, 88, 88, 1
        
         x = self.frontend3D(x)
+        #print(f'frontend3D {x.shape}')
         # Shape: None, 29, 22, 22, 64
+        # depthwise conv3d
+        #x = self.perm1(x)
+        #print(x)
+        x = self.DConv3D(x)
+        #print(x)
+        #x = self.perm2(x)
+        x = self.pad1(x)
+        x = self.front_conv3d(x)
+        #print(f'post front {x.shape}')
+        # 29, 22, 22, 64
         
         x = tf.reshape(x, [-1,  x.shape[2], x.shape[3], 64])
         # Shape: None, 22, 22, 64

@@ -36,6 +36,7 @@ class TemporalShift(Model):
         nt, c, h, w = x.shape
         n_batch = nt // n_segment
         x = tf.reshape(x, [n_batch, n_segment, c, h, w])
+        print(f'tsm reshape{x.shape}')
         
         fold = c // fold_div
         if inplace:
@@ -44,7 +45,14 @@ class TemporalShift(Model):
             raise NotImplementedError  
             # out = InplaceShift.apply(x, fold)
         else:
+            #session = tf.compat.v1.Session()
+            #ith session.as_default():
+            #x = np.array(x.eval(session=session))
             out = np.zeros(x.shape)
+            print(x[:, 1:, :fold])
+            print(x)
+            print(out.shape)
+            print(out[:, :-1, :fold].shape)
             out[:, :-1, :fold] = x[:, 1:, :fold]  # shift left
             out[:, 1:, fold: 2 * fold] = x[:, :-1, fold: 2 * fold]  # shift right
             out[:, :, 2 * fold:] = x[:, :, 2 * fold:]  # not shift

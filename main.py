@@ -21,7 +21,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 from utils import *
-from model import *
+from tsm_model import *
 
 from PIL import Image
 
@@ -37,9 +37,11 @@ def lr_scheduler(epoch, lr):
     sleep_epochs = 5
     half = sleep_epochs 
     if epoch < sleep_epochs:
-        return lr
+        learning_rate = lr
     else:
-        return lr * tf.math.pow(0.5, (epoch-sleep_epochs+1)/float(half))
+        learning_rate =  lr * tf.math.pow(0.5, (epoch-sleep_epochs+1)/float(half))
+    tf.summary.scalar('learning rate', data=learning_rate, step=epoch)
+    return lr
 
 def check_dataset(dataset, dir_name, img_type):
     for i,example in enumerate(dataset.take(1)):
@@ -184,8 +186,8 @@ def run(args, use_gpu=True):
         dataset = dataset.map(lambda x, y: _normalize_function(x, y, args.nClasses))
         val_dataset = val_dataset.map(lambda x, y: _normalize_function(x, y, args.nClasses))
     
-        dataset = dataset.shuffle(500).batch(16)
-        val_dataset = val_dataset.batch(16)
+        dataset = dataset.shuffle(500).batch(16, drop_remainder=True)
+        val_dataset = val_dataset.batch(16, drop_remainder=True)
     
     else:
         dataset = dataset.map(_parse_function)
@@ -207,7 +209,7 @@ def run(args, use_gpu=True):
         # Interrupt training if `val_loss` stops improving for over 2 epochs
   	# tf.keras.callbacks.EarlyStopping(patience=2, monitor='val_loss'),
         # Learning rate scheduler
-        #tf.keras.callbacks.LearningRateScheduler(lr_scheduler),
+        tf.keras.callbacks.LearningRateScheduler(lambda e: lr_scheduler(e, args.lr)),
         # Save checkpoints
         tf.keras.callbacks.ModelCheckpoint(
             filepath=run_dir+'/checkpoints/Conv3D_model_{epoch}', 
@@ -218,6 +220,8 @@ def run(args, use_gpu=True):
   	# Write TensorBoard logs to `./logs` directory
   	tf.keras.callbacks.TensorBoard(log_dir=run_dir+'/logs') 
     ]
+    file_writer = tf.summary.create_file_writer(run_dir+'/logs/metrics')
+    file_writer.set_as_default()
 
     if args.checkpoint:
         print("Loading model from: ", args.checkpoint)

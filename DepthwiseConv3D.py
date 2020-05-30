@@ -7,15 +7,15 @@ Depthwise Separable Convolution layer.
 '''
 from __future__ import absolute_import
 
-from keras import backend as K
-from keras import initializers
-from keras import regularizers
-from keras import constraints
-from keras import layers
-from keras.engine import InputSpec
+from tensorflow.keras import backend as K
+from tensorflow.keras import initializers
+from tensorflow.keras import regularizers
+from tensorflow.keras import constraints
+from tensorflow.keras import layers
+from tensorflow.keras.layers import InputSpec
 from keras.utils import conv_utils
 from keras.legacy.interfaces import conv3d_args_preprocessor, generate_legacy_interface
-from keras.layers import Conv3D
+from tensorflow.keras.layers import Conv3D
 from keras.backend.tensorflow_backend import _preprocess_padding, _preprocess_conv3d_input
 
 import tensorflow as tf

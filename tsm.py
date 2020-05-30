@@ -53,8 +53,7 @@ class TemporalShift(Model):
             print(x)
             print(out.shape)
             print(out[:, :-1, :fold].shape)
-            #out[:, :-1, :fold] = x[:, 1:, :fold]  # shift left
-            out[:, :-1, :fold] = tf.slice(x,[0,0,0,1,0], [x.shape[0],x.shape[1], x.shape[2], x.shape[3]-1, fold] )  # shift left
+            out[:, :-1, :fold] = x[:, 1:, :fold]  # shift left
             out[:, 1:, fold: 2 * fold] = x[:, :-1, fold: 2 * fold]  # shift right
             out[:, :, 2 * fold:] = x[:, :, 2 * fold:]  # not shift
 
@@ -62,8 +61,18 @@ class TemporalShift(Model):
             out = tf.reshape(out, [nt, c, h, w])
         return out
 
-    def call(self, inputs):
-        return self.forward(inputs)
+    def call(self, x):
+        size = x.shape
+        x = tf.reshape(x, [-1, 29, size[1], size[2], size[3]])
+        print(x)
+        pre_x, post_x, _ = tf.split(x, [size[3] // 4, size[3] // 4, size[3] // 2], 4)
+        #print(pre_x, post_x, peri_x)
+        #pre_x  = tf.concat((pre_x [:, -1:, :, :, :], pre_x [:, :-1, :, :, :]), 1)
+        tf.roll(pre_x, 1, 1)
+        tf.roll(post_x, -1, 1)
+        #post_x = tf.concat((post_x[:,  1:, :, :, :], post_x[:, :1 , :, :, :]), 1)
+        return tf.reshape(tf.concat((pre_x, post_x, x[:, :, :, :, size[3]//2:]), 4), size)
+        #return self.forward(inputs)
 
 
 '''class InplaceShift(torch.autograd.Function):

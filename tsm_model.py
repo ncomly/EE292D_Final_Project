@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 #import keras
 from depthwise import *
-from tensorflow.keras.layers import Input, Dense, ReLU, Flatten, Permute
+from tensorflow.keras.layers import InputLayer, Dense, ReLU, Flatten, Permute
 from tensorflow.keras.layers import Conv1D, Conv2D, Conv3D, ZeroPadding3D
 from tensorflow.keras.layers import BatchNormalization, AveragePooling2D, MaxPool1D
 from tensorflow.keras.models import Model
@@ -27,9 +27,11 @@ class ResNet(tf.keras.Model):
         self.in_planes = 64 #int(16 / self.reduction)
 
         self.layer1   = self._make_layer(block, self.in_planes, num_blocks[0], stride=1)
+        self.tsm1     = TemporalShift(Sequential(InputLayer(input_shape=(22,22,64,))), 8,8,False)
         self.layer2   = self._make_layer(block, 128, num_blocks[1], stride=2)
         self.layer3   = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4   = self._make_layer(block, 512, num_blocks[3], stride=2)
+        self.tsm2     = TemporalShift(Sequential(InputLayer(input_shape=(22,22,256,))), 8,8,False)
         self.flatten  = Flatten()
         self.fc       = Dense(num_classes)
         self.bnfc     = BatchNormalization(momentum=0.1, epsilon=1e-5)
@@ -57,8 +59,11 @@ class ResNet(tf.keras.Model):
 
     def call(self, x):
         x = self.layer1(x)
+        x = self.tsm1(x)
         x = self.layer2(x)
         x = self.layer3(x)
+        #print(f'preTSM shape {x.shape}')
+        #print(f'postTSM shape {x.shape}')
         x = self.layer4(x)
 
         x = self.avgpool(x)
@@ -84,11 +89,8 @@ class LipNext(tf.keras.Model):
         self.nLayers = 2
         self.alpha = alpha
 
-        # TSM Frontend
-        self.permute1 = Permute((3,1,2))
-        self.tsm = TemporalShift(Sequential(), 8, 8, False)
-        self.permute2 = Permute((2,3,1))
-        
+        # Input
+        self.input_layer = InputLayer(input_shape=(29,88,88,1,))
         self.resnet34 = LipRes(self.alpha)
         # backend
         self.backend_conv1 = Sequential ( [  
@@ -111,9 +113,10 @@ class LipNext(tf.keras.Model):
         # self._initialize_weights()
 
     def call(self, x):
+        x = self.input_layer(x)
         # Shape: None, 29, 88, 88, 1
         # rehshape & perm
-        print(f'1{x.shape}')
+        '''print(f'1{x.shape}')
         x = tf.reshape(x, [-1,  x.shape[2], x.shape[3], 1])
         x = self.permute1(x)
         # Front end TSM
@@ -122,11 +125,11 @@ class LipNext(tf.keras.Model):
         x = self.permute2(x)
         print(f'TSM shape: {x.shape}')
         x = tf.reshape(x, [-1, self.frameLen, x.shape[1], x.shape[2], 1])
-        # Shape: None, 29, 22, 22, 64
+        # Shape: None, 29, 22, 22, 64'''
         
-        print(f'reshape: {x.shape}')
-        x = tf.reshape(x, [-1,  x.shape[2], x.shape[3], 64])
-        # Shape: None, 22, 22, 64
+        print(f'input shape: {x.shape}')
+        x = tf.reshape(x, [-1,  x.shape[2], x.shape[3], 1])
+        # Shape: None, 88, 88,, 1
         
         x = self.resnet34(x)
         # Shape: None, 256

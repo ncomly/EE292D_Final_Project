@@ -1,0 +1,15 @@
+{
+    "nClasses": 50,
+    "path": "",
+    "dataset": "/mnt/disks/data/dataset/lipread_tfrecords/",
+    "labels": "label_subset_half.txt",
+    "lr": 0.0003,
+    "lr_sleep_epochs": 5,
+    "batch_size": 16,
+    "workers": 4,
+    "epochs": 10,
+    "interval": 5,
+    "test": 0,
+    "alpha": 2,
+    "description":"LipNext:final model, increased batch-norm, added alpha tune-ability"
+}

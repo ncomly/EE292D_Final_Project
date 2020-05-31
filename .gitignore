@@ -1,1 +1,4 @@
 __pycache__/
+MobiVSR/models/
+config_test.json
+label_subset_test.txt

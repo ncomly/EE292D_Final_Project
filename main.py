@@ -21,7 +21,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 from utils import *
-from tsm_model import *
+from model import *
 
 from PIL import Image
 
@@ -186,8 +186,8 @@ def run(args, use_gpu=True):
         dataset = dataset.map(lambda x, y: _normalize_function(x, y, args.nClasses))
         val_dataset = val_dataset.map(lambda x, y: _normalize_function(x, y, args.nClasses))
     
-        dataset = dataset.shuffle(500).batch(16, drop_remainder=True)
-        val_dataset = val_dataset.batch(16, drop_remainder=True)
+        dataset = dataset.shuffle(500).batch(args.batch_size, drop_remainder=True)
+        val_dataset = val_dataset.batch(args.batch_size, drop_remainder=True)
     
     else:
         dataset = dataset.map(_parse_function)
@@ -197,7 +197,7 @@ def run(args, use_gpu=True):
         
         dataset = dataset.map(lambda x, y: _normalize_function(x,y, args.nClasses))
         
-        dataset = dataset.batch(16)
+        dataset = dataset.batch(args.batch_size)
  
     #check_dataset(dataset, "test_test_images_processed", 'L')
     model.compile(optimizer=Adam(learning_rate = args.lr), 

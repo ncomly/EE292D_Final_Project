@@ -26,7 +26,7 @@ class LipResBlock(tf.keras.Model):
         self.conv3 = Conv2D (out_planes, kernel_size=1, use_bias=False, strides=(stride,stride), kernel_initializer=initializer)
         self.bn3   = BatchNormalization (momentum=0.1, epsilon=1e-5)
 
-        self.shortcut = Sequential()
+        self.shortcut = Sequential(name='s0')
         if stride != 1 or in_planes != out_planes:
             self.shortcut = Conv2D(out_planes, kernel_size=1, strides=stride, use_bias=False, kernel_initializer=initializer)
 

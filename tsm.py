@@ -64,122 +64,11 @@ class TemporalShift(Model):
     def call(self, x):
         size = x.shape
         x = tf.reshape(x, [-1, 29, size[1], size[2], size[3]])
-        
-        pre_x, post_x, peri_x = tf.split(x, [size[3] // 4, size[3] // 4, size[3] // 2], 4)
-        del x
-        #print(pre_x, post_x, peri_x)
-        #pre_x  = tf.concat((pre_x [:, -1:, :, :, :], pre_x [:, :-1, :, :, :]), 1)
-        tf.roll(pre_x, 1, 1)
-        tf.roll(post_x, -1, 1)
-        #post_x = tf.concat((post_x[:,  1:, :, :, :], post_x[:, :1 , :, :, :]), 1)
-        #return x
-        return tf.reshape(tf.concat((pre_x, post_x, peri_x), 4), size)
-        #return self.forward(inputs)
-
-
-'''class InplaceShift(torch.autograd.Function):
-    # Special thanks to @raoyongming for the help to this function
-    @staticmethod
-    def forward(ctx, input, fold):
-        # not support higher order gradient
-        # input = input.detach_()
-        ctx.fold_ = fold
-        n, t, c, h, w = input.size()
-        buffer = input.data.new(n, t, fold, h, w).zero_()
-        buffer[:, :-1] = input.data[:, 1:, :fold]
-        input.data[:, :, :fold] = buffer
-        buffer.zero_()
-        buffer[:, 1:] = input.data[:, :-1, fold: 2 * fold]
-        input.data[:, :, fold: 2 * fold] = buffer
-        return input
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        # grad_output = grad_output.detach_()
-        fold = ctx.fold_
-        n, t, c, h, w = grad_output.size()
-        buffer = grad_output.data.new(n, t, fold, h, w).zero_()
-        buffer[:, 1:] = grad_output.data[:, :-1, :fold]
-        grad_output.data[:, :, :fold] = buffer
-        buffer.zero_()
-        buffer[:, :-1] = grad_output.data[:, 1:, fold: 2 * fold]
-        grad_output.data[:, :, fold: 2 * fold] = buffer
-        return grad_output, None
-
-
-class TemporalPool(nn.Module):
-    def __init__(self, net, n_segment):
-        super(TemporalPool, self).__init__()
-        self.net = net
-        self.n_segment = n_segment
-
-    def forward(self, x):
-        x = self.temporal_pool(x, n_segment=self.n_segment)
-        return self.net(x)
-
-    @staticmethod
-    def temporal_pool(x, n_segment):
-        nt, c, h, w = x.size()
-        n_batch = nt // n_segment
-        x = x.view(n_batch, n_segment, c, h, w).transpose(1, 2)  # n, c, t, h, w
-        x = F.max_pool3d(x, kernel_size=(3, 1, 1), stride=(2, 1, 1), padding=(1, 0, 0))
-        x = x.transpose(1, 2).contiguous().view(nt // 2, c, h, w)
-        return x
-
-
-def make_temporal_shift(net, n_segment, n_div=8, place='blockres', temporal_pool=False):
-    if temporal_pool:
-        n_segment_list = [n_segment, n_segment // 2, n_segment // 2, n_segment // 2]
-    else:
-        n_segment_list = [n_segment] * 4
-    assert n_segment_list[-1] > 0
-    print('=> n_segment per stage: {}'.format(n_segment_list))
-
-    import torchvision
-    if isinstance(net, torchvision.models.ResNet):
-        if place == 'block':
-            def make_block_temporal(stage, this_segment):
-                blocks = list(stage.children())
-                print('=> Processing stage with {} blocks'.format(len(blocks)))
-                for i, b in enumerate(blocks):
-                    blocks[i] = TemporalShift(b, n_segment=this_segment, n_div=n_div)
-                return nn.Sequential(*(blocks))
-
-            net.layer1 = make_block_temporal(net.layer1, n_segment_list[0])
-            net.layer2 = make_block_temporal(net.layer2, n_segment_list[1])
-            net.layer3 = make_block_temporal(net.layer3, n_segment_list[2])
-            net.layer4 = make_block_temporal(net.layer4, n_segment_list[3])
-
-        elif 'blockres' in place:
-            n_round = 1
-            if len(list(net.layer3.children())) >= 23:
-                n_round = 2
-                print('=> Using n_round {} to insert temporal shift'.format(n_round))
-
-            def make_block_temporal(stage, this_segment):
-                blocks = list(stage.children())
-                print('=> Processing stage with {} blocks residual'.format(len(blocks)))
-                for i, b in enumerate(blocks):
-                    if i % n_round == 0:
-                        blocks[i].conv1 = TemporalShift(b.conv1, n_segment=this_segment, n_div=n_div)
-                return nn.Sequential(*blocks)
-
-            net.layer1 = make_block_temporal(net.layer1, n_segment_list[0])
-            net.layer2 = make_block_temporal(net.layer2, n_segment_list[1])
-            net.layer3 = make_block_temporal(net.layer3, n_segment_list[2])
-            net.layer4 = make_block_temporal(net.layer4, n_segment_list[3])
-    else:
-        raise NotImplementedError(place)
-
-
-def make_temporal_pool(net, n_segment):
-    import torchvision
-    if isinstance(net, torchvision.models.ResNet):
-        print('=> Injecting nonlocal pooling')
-        net.layer2 = TemporalPool(net.layer2, n_segment)
-    else:
-        raise NotImplementedError'''
-
+        return tf.reshape(tf.roll(x, 1, 1), size)
+        return tf.concat((tf.roll(x[:,:,:,:,:size[3]//4], 1, 1), 
+                            x[:,:,:,:,size[3]//4::]),4)
+        return tf.reshape(tf.concat((tf.roll(x[:,:,:,:,:size[3]//4], 1, 1), 
+                                     x[:,:,:,:,size[3]//4::]),4), size)
 
 if __name__ == '__main__':
     # test inplace shift v.s. vanilla shift
@@ -191,49 +80,6 @@ if __name__ == '__main__':
     # tf.stop_gradient(x)
     y1 = tsm1(x)
 
-    '''print('=> Testing CPU...')
-    # test forward
-    with torch.no_grad():
-        for i in range(10):
-            x = tf.random.uniform([2 * 8, 3, 224, 224])
-            # x = torch.rand(2 * 8, 3, 224, 224)
-            y1 = tsm1(x)
-            y2 = tsm2(x)
-            assert torch.norm(y1 - y2).item() < 1e-5
 
-    # test backward
-    with torch.enable_grad():
-        for i in range(10):
-            x1 = tf.random.uniform([2 * 8, 3, 224, 224])
-            x1.requires_grad_()
-            x2 = x1.clone()
-            y1 = tsm1(x1)
-            y2 = tsm2(x2)
-            grad1 = torch.autograd.grad((y1 ** 2).mean(), [x1])[0]
-            grad2 = torch.autograd.grad((y2 ** 2).mean(), [x2])[0]
-            assert torch.norm(grad1 - grad2).item() < 1e-5'''
-
-    '''print('=> Testing GPU...')
-    tsm1.cuda()
-    tsm2.cuda()
-    # test forward
-    with torch.no_grad():
-        for i in range(10):
-            x = torch.rand(2 * 8, 3, 224, 224).cuda()
-            y1 = tsm1(x)
-            y2 = tsm2(x)
-            assert torch.norm(y1 - y2).item() < 1e-5
-
-    # test backward
-    with torch.enable_grad():
-        for i in range(10):
-            x1 = torch.rand(2 * 8, 3, 224, 224).cuda()
-            x1.requires_grad_()
-            x2 = x1.clone()
-            y1 = tsm1(x1)
-            y2 = tsm2(x2)
-            grad1 = torch.autograd.grad((y1 ** 2).mean(), [x1])[0]
-            grad2 = torch.autograd.grad((y2 ** 2).mean(), [x2])[0]
-            assert torch.norm(grad1 - grad2).item() < 1e-5'''
     print('Test passed.')
 

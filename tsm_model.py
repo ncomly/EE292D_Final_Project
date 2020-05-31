@@ -26,26 +26,21 @@ class ResNet(tf.keras.Model):
         self.num_classes = num_classes
         self.in_planes = 64 #int(16 / self.reduction)
 
+        # self.tsm      = TemporalShift(Sequential(InputLayer(input_shape=(22,22,1,)),name='s1'), 8,8,False)
+        # self.tsm1     = TemporalShift(Sequential(InputLayer(input_shape=(22,22,64,)),name='s1'), 8,8,False)
+        # self.layer1   = self._make_layer(block, 16, num_blocks[0], stride=1)
+        # self.layer2   = self._make_layer(block, 32, num_blocks[1], stride=2)
+        # self.layer3   = self._make_layer(block, 64, num_blocks[2], stride=2)
+        # self.layer4   = self._make_layer(block, 128, num_blocks[3], stride=2)
         self.layer1   = self._make_layer(block, self.in_planes, num_blocks[0], stride=1)
-        self.tsm1     = TemporalShift(Sequential(InputLayer(input_shape=(22,22,64,))), 8,8,False)
         self.layer2   = self._make_layer(block, 128, num_blocks[1], stride=2)
         self.layer3   = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4   = self._make_layer(block, 512, num_blocks[3], stride=2)
-        self.tsm2     = TemporalShift(Sequential(InputLayer(input_shape=(22,22,256,))), 8,8,False)
+        # self.tsm2     = TemporalShift(Sequential(InputLayer(input_shape=(22,22,256,)),name='s2'), 8,8,False)
         self.flatten  = Flatten()
         self.fc       = Dense(num_classes)
         self.bnfc     = BatchNormalization(momentum=0.1, epsilon=1e-5)
         self.avgpool = AveragePooling2D()
-
-        # TODO: weight initialization port -> done in depthwise.py
-        # for m in self.modules():
-        #     if isinstance(m, Conv2d):
-        #         torch.nn.init.kaiming_uniform_(m.weight)
-        #     elif isinstance(m, BatchNormalization):
-        #         m.weight.data.fill_(1)
-        #         m.bias.data.zero_()
-
-
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -54,16 +49,19 @@ class ResNet(tf.keras.Model):
         for stride in strides:
             layers.append(block(self.in_planes, planes, stride))
             self.in_planes = planes
-        return Sequential(layers)
+        return Sequential(layers,name='s'+str(planes))
 
 
     def call(self, x):
+        # size = x.shape
+        # x = tf.reshape(x, [-1, 29, size[1], size[2], size[3]])
+
+        # x = tf.reshape(x, size)
         x = self.layer1(x)
-        x = self.tsm1(x)
+        # x = tf.reshape(x, size)
+        # print('post resize')
         x = self.layer2(x)
         x = self.layer3(x)
-        #print(f'preTSM shape {x.shape}')
-        #print(f'postTSM shape {x.shape}')
         x = self.layer4(x)
 
         x = self.avgpool(x)
@@ -91,6 +89,36 @@ class LipNext(tf.keras.Model):
 
         # Input
         self.input_layer = InputLayer(input_shape=(29,88,88,1,))
+
+
+
+
+        #  self.frontend3D = Sequential ( [
+        #         ZeroPadding3D(padding=(1,1,1),), #input_shape=(1,29,96,96)), # double check channel placement
+        #         Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer, padding='valid'),
+        #         BatchNormalization(momentum=.1, epsilon=1e-5), # should this be .9 instead?
+        #         ReLU(), # check in place?
+        #         # group convolution - TODO: THIS IS NOT RIGHT
+        #         ZeroPadding3D(padding=(1,1,1)),])
+        # #        Conv3D(64, kernel_size=(3,3,3), strides=(1,2,2), use_bias=False, kernel_initializer=initializer, padding='valid'),
+        # #        ZeroPadding3D(padding=(1,0,0)), # double check channel placement
+        # #        Conv3D(64, kernel_size=(3,1,1), strides=(1,1,1), use_bias=False, kernel_initializer=initializer, padding='valid')
+        # #    ] )
+        
+        # self.perm1 = Permute((4,1,2,3))
+        # self.DConv3D = DepthwiseConv3D(kernel_size=(3,3,3), depth_multiplier=1, strides=(1,2,2), use_bias=False, data_format='channels_last')
+        # self.perm2 = Permute((2,3,4,1))
+        # self.pad1 = ZeroPadding3D(padding=(1,0,0)) # double check channel placement
+        # self.front_conv3d = Conv3D(64, kernel_size=(3,1,1), strides=(1,1,1), use_bias=False, kernel_initializer=initializer, padding='valid')
+        # # resnet
+        # self.permute1 = Permute((1,4,2,3))
+
+
+
+
+
+
+
         self.resnet34 = LipRes(self.alpha)
         # backend
         self.backend_conv1 = Sequential ( [  
@@ -113,7 +141,7 @@ class LipNext(tf.keras.Model):
         # self._initialize_weights()
 
     def call(self, x):
-        x = self.input_layer(x)
+        # x = self.input_layer(x)
         # Shape: None, 29, 88, 88, 1
         # rehshape & perm
         '''print(f'1{x.shape}')
@@ -127,11 +155,10 @@ class LipNext(tf.keras.Model):
         x = tf.reshape(x, [-1, self.frameLen, x.shape[1], x.shape[2], 1])
         # Shape: None, 29, 22, 22, 64'''
         
-        print(f'input shape: {x.shape}')
-        x = tf.reshape(x, [-1,  x.shape[2], x.shape[3], 1])
-        # Shape: None, 88, 88,, 1
+        # x = tf.reshape(x, [-1,  x.shape[2], x.shape[3], x.shape[4]])
+        # Shape: None, 88, 88, 1
         
-        x = self.resnet34(x)
+        x = self.resnet34(x[:,0,:,:,:])
         # Shape: None, 256
         
         x = tf.reshape(x, [-1, self.frameLen, self.inputDim])

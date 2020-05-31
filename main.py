@@ -21,7 +21,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 from utils import *
-from tsm_model import *
+from model import *
 
 from PIL import Image
 
@@ -41,7 +41,7 @@ def lr_scheduler(epoch, lr):
     else:
         learning_rate =  lr * tf.math.pow(0.5, (epoch-sleep_epochs+1)/float(half))
     tf.summary.scalar('learning rate', data=learning_rate, step=epoch)
-    return lr
+    return learning_rate
 
 def check_dataset(dataset, dir_name, img_type):
     for i,example in enumerate(dataset.take(1)):
@@ -190,7 +190,7 @@ def run(args, use_gpu=True):
         dataset = dataset.map(lambda x, y: _normalize_function(x, y, args.nClasses))
         val_dataset = val_dataset.map(lambda x, y: _normalize_function(x, y, args.nClasses))
     
-        dataset = dataset.shuffle(500).batch(args.batch_size, drop_remainder=True)
+        dataset = dataset.batch(args.batch_size, drop_remainder=True)
         val_dataset = val_dataset.batch(args.batch_size, drop_remainder=True)
 
         dataset = dataset.map(lambda x, y: (x[:,:,::2,::2,:], y))
@@ -207,7 +207,9 @@ def run(args, use_gpu=True):
         
         dataset = dataset.map(lambda x, y: _normalize_function(x,y, args.nClasses))
         
-        dataset = dataset.batch(args.batch_size)
+        dataset = dataset.batch(args.batch_size, drop_remainder=True)
+
+        dataset = dataset.map(lambda x, y: (x[:,:,::2,::2,:], y))
  
     #check_dataset(dataset, "test_test_images_processed", 'L')
     model.compile(optimizer=Adam(learning_rate = args.lr), 
@@ -222,10 +224,11 @@ def run(args, use_gpu=True):
         tf.keras.callbacks.LearningRateScheduler(lambda e: lr_scheduler(e, args.lr)),
         # Save checkpoints
         tf.keras.callbacks.ModelCheckpoint(
-            filepath=run_dir+'/checkpoints/Conv3D_model_{epoch}', 
-            #save_weights_only=True,
+            filepath=run_dir+'/runs/{epoch}/checkpoint', 
+            save_weights_only=True,
             save_best_only=True,
-            monitor='val_loss'
+            monitor='val_categorical_accuracy',
+            mode='max'
         ),
   	# Write TensorBoard logs to `./logs` directory
   	tf.keras.callbacks.TensorBoard(log_dir=run_dir+'/logs', profile_batch=0) 
@@ -236,7 +239,8 @@ def run(args, use_gpu=True):
     if args.checkpoint:
         print("Loading model from: ", args.checkpoint)
         #model.load_weights(args.checkpoint)
-        model = tf.keras.models.load_model(args.checkpoint)
+        model.load_weights(args.checkpoint)
+        #model = tf.keras.models.load_model(args.checkpoint)
     else:
         print("Model training from scratch")
 

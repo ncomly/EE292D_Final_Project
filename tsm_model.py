@@ -26,7 +26,7 @@ class ResNet(tf.keras.Model):
         self.num_classes = num_classes
         self.in_planes = 64 #int(16 / self.reduction)
 
-        # self.tsm      = TemporalShift(Sequential(InputLayer(input_shape=(22,22,1,)),name='s1'), 8,8,False)
+        self.tsm      = TemporalShift(Sequential(InputLayer(input_shape=(22,22,64,)),name='s1'), 8,8,False)
         # self.tsm1     = TemporalShift(Sequential(InputLayer(input_shape=(22,22,64,)),name='s1'), 8,8,False)
         # self.layer1   = self._make_layer(block, 16, num_blocks[0], stride=1)
         # self.layer2   = self._make_layer(block, 32, num_blocks[1], stride=2)
@@ -58,6 +58,7 @@ class ResNet(tf.keras.Model):
 
         # x = tf.reshape(x, size)
         x = self.layer1(x)
+        x = self.tsm(x)
         # x = tf.reshape(x, size)
         # print('post resize')
         x = self.layer2(x)

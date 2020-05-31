@@ -64,9 +64,9 @@ class TemporalShift(Model):
     def call(self, x):
         size = x.shape
         x = tf.reshape(x, [-1, 29, size[1], size[2], size[3]])
-        return tf.reshape(tf.roll(x, 1, 1), size)
-        return tf.concat((tf.roll(x[:,:,:,:,:size[3]//4], 1, 1), 
-                            x[:,:,:,:,size[3]//4::]),4)
+        #return tf.reshape(tf.roll(x, 1, 1), size)
+        #return tf.concat((tf.roll(x[:,:,:,:,:size[3]//4], 1, 1), 
+        #                    x[:,:,:,:,size[3]//4::]),4)
         return tf.reshape(tf.concat((tf.roll(x[:,:,:,:,:size[3]//4], 1, 1), 
                                      x[:,:,:,:,size[3]//4::]),4), size)
 

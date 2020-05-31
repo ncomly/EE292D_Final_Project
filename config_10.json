@@ -1,8 +1,8 @@
 {
-    "nClasses": 5,
+    "nClasses": 10,
     "path": "",
     "dataset": "/mnt/disks/data/dataset/lipread_tfrecords/",
-    "labels": "label_subset_mini.txt",
+    "labels": "label_10.txt",
     "lr": 0.0003,
     "lr_sleep_epochs": 5,
     "batch_size": 8,

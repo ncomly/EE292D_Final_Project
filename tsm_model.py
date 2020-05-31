@@ -155,12 +155,14 @@ class LipNext(tf.keras.Model):
         x = tf.reshape(x, [-1, self.frameLen, x.shape[1], x.shape[2], 1])
         # Shape: None, 29, 22, 22, 64'''
         
-        # x = tf.reshape(x, [-1,  x.shape[2], x.shape[3], x.shape[4]])
+        print(f'input shape: {x.shape}') 
+        x = tf.reshape(x, [-1,  x.shape[2], x.shape[3], x.shape[4]])
         # Shape: None, 88, 88, 1
-        
-        x = self.resnet34(x[:,0,:,:,:])
+        print(f'reshape: {x.shape}') 
+        x = self.resnet34(x)
         # Shape: None, 256
         
+        print(f'post resnet shape: {x.shape}') 
         x = tf.reshape(x, [-1, self.frameLen, self.inputDim])
         # Shape: None, 29, 256
         

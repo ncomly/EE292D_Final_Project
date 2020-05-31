@@ -21,7 +21,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 from utils import *
-from model import *
+from tsm_model import *
 
 from PIL import Image
 
@@ -76,12 +76,16 @@ def _parse_function(example):
         }
             
         features = tf.io.parse_single_example(example, feature_description)
-        image_buffer = tf.reshape(features[path], shape=[])
-        image = tf.io.decode_raw(image_buffer, tf.uint8)
+        #image_buffer = tf.reshape(features[path], shape=[])
+        #image = tf.io.decode_raw(image_buffer, tf.uint8)
+        image = tf.reshape(features[path], shape=[])
+        image = tf.io.decode_raw(image, tf.uint8)
         image = tf.reshape(image, tf.stack([height, width, num_depth]))
         image = tf.reshape(image, [1, height, width, num_depth])
 #        image = image[:,:,:,0]# / tf.constant(255, shape=(1, height, width), dtype=tf.uint8) 
         image_seq.append(image)
+    del example
+    del image
 #    image_seq = tf.reshape(image_seq, [1, n_frames, height, width])
     image_seq = tf.concat(image_seq, 0)
     label = features['label']
@@ -137,7 +141,7 @@ def run(args, use_gpu=True):
     model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
     #model = tf.keras.Sequential([
     #    tf.keras.layers.Flatten(),
-    #    tf.keras.layers.Dense(1)
+    #    tf.keras.layers.Dense(args.nClasses)
     #])
 
     if args.train==True:
@@ -188,6 +192,12 @@ def run(args, use_gpu=True):
     
         dataset = dataset.shuffle(500).batch(args.batch_size, drop_remainder=True)
         val_dataset = val_dataset.batch(args.batch_size, drop_remainder=True)
+
+        dataset = dataset.map(lambda x, y: (x[:,:,::2,::2,:], y))
+        val_dataset = val_dataset.map(lambda x, y: (x[:,:,::2,::2,:], y))
+
+#        dataset = dataset.map(lambda x, y: ( tf.reshape(x, [-1, x.shape[2], x.shape[3], x.shape[4]]), y))
+#        val_dataset = val_dataset.map(lambda x, y: ( tf.reshape(x, [-1, x.shape[2], x.shape[3], x.shape[4]]), y))
     
     else:
         dataset = dataset.map(_parse_function)
@@ -218,7 +228,7 @@ def run(args, use_gpu=True):
             monitor='val_loss'
         ),
   	# Write TensorBoard logs to `./logs` directory
-  	tf.keras.callbacks.TensorBoard(log_dir=run_dir+'/logs') 
+  	tf.keras.callbacks.TensorBoard(log_dir=run_dir+'/logs', profile_batch=0) 
     ]
     file_writer = tf.summary.create_file_writer(run_dir+'/logs/metrics')
     file_writer.set_as_default()

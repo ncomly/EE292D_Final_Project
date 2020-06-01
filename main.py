@@ -217,6 +217,7 @@ def run(args, use_gpu=True):
            metrics=['accuracy', TopKCategoricalAccuracy(3),keras.metrics.CategoricalAccuracy() ]) 
 
     run_dir = args.save_path + datetime.now().strftime("%Y%m%d-%H%M%S")
+    print(run_dir, "_-----------------------------------------------")
     callbacks = [
         # Interrupt training if `val_loss` stops improving for over 2 epochs
   	# tf.keras.callbacks.EarlyStopping(patience=2, monitor='val_loss'),

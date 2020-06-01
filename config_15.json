@@ -5,7 +5,7 @@
     "labels": "label_15.txt",
     "lr": 0.0003,
     "lr_sleep_epochs": 5,
-    "batch_size": 8,
+    "batch_size": 12,
     "workers": 4,
     "epochs": 50,
     "interval": 5,

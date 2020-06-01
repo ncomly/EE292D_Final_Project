@@ -68,20 +68,40 @@ class TemporalShift(Model):
         # split along channel dimension (1/fold_div shifted right,
         # 1/fold_div shifted left, rest not shifted)
         folds = tf.split(x, num_or_size_splits=self.fold_div, axis=4)
+        # shift right
         shift_right = tf.roll(folds[0], shift=1, axis=1)
+        s_shape = shift_right.shape
+        # zero padding
+        shift_right = tf.concat([tf.zeros([s_shape[0], 1, s_shape[2], s_shape[3], s_shape[4]], dtype=tf.float32), shift_right[:, 1:, :, :, :]], axis=1)
+
+        # shift left
+        shift_left = tf.roll(folds[1], shift=-1, axis=1)
+        s_shape = shift_left.shape
+        # zero padding
+        shift_left = tf.concat([shift_left[:, :-1, :, :, :], tf.zeros([s_shape[0], 1, s_shape[2], s_shape[3], s_shape[4]], dtype=tf.float32)], axis=1)
+        # print("shift right ", shift_right.shape)
+        # print("shift left ", shift_left.shape)
+        # concatenate shifted arrays in both directions
+        shift_right = tf.concat([shift_right, shift_left], axis=4)
+        # concatenate shifted arrays with rest of data (not shifted)
+        for i in range(self.fold_div - 2):
+            shift_right = tf.concat([shift_right, folds[i + 2]], axis=4)
+        # reshape back to original x size
+        return tf.reshape(shift_right, size)
+
+        '''shift_right = tf.roll(x[:, :, :, :, :x.shape[4] // self.fold_div], shift=1, axis=1)
         s_shape = shift_right.shape
         # shift right
         shift_right = tf.concat([shift_right[:, 1:, :, :, :], tf.zeros([s_shape[0], 1, s_shape[2], s_shape[3], s_shape[4]], dtype=tf.float32)], axis=1)
-
-        shift_left = tf.roll(folds[1], shift=-1, axis=1)
+    
+        shift_left = tf.roll(x[:, :, :, :, x.shape[4] // self.fold_div:2 * x.shape[4] // self.fold_div], shift=-1, axis=1)
         s_shape = shift_left.shape
         shift_left = tf.concat([shift_left[:, :-1, :, :, :], tf.zeros([s_shape[0], 1, s_shape[2], s_shape[3], s_shape[4]], dtype=tf.float32)], axis=1)
         print("shift right ", shift_right.shape)
         print("shift left ", shift_left.shape)
-        shift_right = tf.concat([shift_right, shift_left], axis=4)
-        for i in range(self.fold_div - 2):
-            shift_right = tf.concat([shift_right, folds[i + 2]], axis=4)
-        return tf.reshape(shift_right, size)
+        shift_right = tf.concat([shift_right, shift_left, x[:, :, :, :, 2 * x.shape[4] // self.fold_div:]], axis=4)
+        return tf.reshape(shift_right, size)'''
+
         '''print("shift right__", shift_right.shape)
         print("shift right shape: ", shift_right)
         print("num splits: ", self.fold_div)

@@ -69,7 +69,7 @@ class TemporalShift(Model):
         # 1/fold_div shifted left, rest not shifted)
         folds = tf.split(x, num_or_size_splits=self.fold_div, axis=4)
         # shift right
-        shift_right = tf.roll(folds[0], shift=1, axis=1)
+        '''shift_right = tf.roll(folds[0], shift=1, axis=1)
         s_shape = shift_right.shape
         # zero padding
         shift_right = tf.concat([tf.zeros([s_shape[0], 1, s_shape[2], s_shape[3], s_shape[4]], dtype=tf.float32), shift_right[:, 1:, :, :, :]], axis=1)
@@ -87,12 +87,12 @@ class TemporalShift(Model):
         for i in range(self.fold_div - 2):
             shift_right = tf.concat([shift_right, folds[i + 2]], axis=4)
         # reshape back to original x size
-        return tf.reshape(shift_right, size)
+        return tf.reshape(shift_right, size)'''
 
-        '''shift_right = tf.roll(x[:, :, :, :, :x.shape[4] // self.fold_div], shift=1, axis=1)
+        shift_right = tf.roll(x[:, :, :, :, :x.shape[4] // self.fold_div], shift=1, axis=1)
         s_shape = shift_right.shape
         # shift right
-        shift_right = tf.concat([shift_right[:, 1:, :, :, :], tf.zeros([s_shape[0], 1, s_shape[2], s_shape[3], s_shape[4]], dtype=tf.float32)], axis=1)
+        shift_right = tf.concat([tf.zeros([s_shape[0], 1, s_shape[2], s_shape[3], s_shape[4]], dtype=tf.float32), shift_right[:, 1:, :, :, :]], axis=1)
     
         shift_left = tf.roll(x[:, :, :, :, x.shape[4] // self.fold_div:2 * x.shape[4] // self.fold_div], shift=-1, axis=1)
         s_shape = shift_left.shape
@@ -100,7 +100,7 @@ class TemporalShift(Model):
         print("shift right ", shift_right.shape)
         print("shift left ", shift_left.shape)
         shift_right = tf.concat([shift_right, shift_left, x[:, :, :, :, 2 * x.shape[4] // self.fold_div:]], axis=4)
-        return tf.reshape(shift_right, size)'''
+        return tf.reshape(shift_right, size)
 
         '''print("shift right__", shift_right.shape)
         print("shift right shape: ", shift_right)

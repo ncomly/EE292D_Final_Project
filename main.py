@@ -89,8 +89,8 @@ def _parse_function(example):
 #    image_seq = tf.reshape(image_seq, [1, n_frames, height, width])
     image_seq = tf.concat(image_seq, 0)
     label = features['label']
-    print("image: ", image_seq)
-    print("label: ", label)
+    # print("image: ", image_seq)
+    # print("label: ", label)
     return image_seq, label
 
 def video_left_right_flip(image):
@@ -162,7 +162,7 @@ def run(args, use_gpu=True):
     val_list = []
     test_list = []
     for word in labels:
-        print(word)
+        # print(word)
         train_list.extend(glob.glob(args.dataset + word + '/train/*.tfrecords'))
         val_list.extend(glob.glob(args.dataset + word + '/val/*.tfrecords'))
         test_list.extend(glob.glob(args.dataset + word + '/test/*.tfrecords'))
@@ -176,7 +176,7 @@ def run(args, use_gpu=True):
         val_dataset = tf.data.TFRecordDataset(val_list)
     else:
         dataset = tf.data.TFRecordDataset(test_list)
-    print("raw_dataset: ", dataset)
+    # print("raw_dataset: ", dataset)
 
     if mode=="train":
         dataset = dataset.map(_parse_function)
@@ -242,7 +242,7 @@ def run(args, use_gpu=True):
         model.load_weights(args.checkpoint)
         #model = tf.keras.models.load_model(args.checkpoint)
     else:
-        print("Model training from scratch")
+        print("Model training from scratch -")
 
     if mode=="train":
         model.fit(dataset, epochs=args.epochs, callbacks=callbacks, validation_data=val_dataset)

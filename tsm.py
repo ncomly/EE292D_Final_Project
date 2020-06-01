@@ -64,11 +64,53 @@ class TemporalShift(Model):
     def call(self, x):
         size = x.shape
         x = tf.reshape(x, [-1, 29, size[1], size[2], size[3]])
+
+        # split along channel dimension (1/fold_div shifted right,
+        # 1/fold_div shifted left, rest not shifted)
+        folds = tf.split(x, num_or_size_splits=self.fold_div, axis=4)
+        shift_right = tf.roll(folds[0], shift=1, axis=1)
+        s_shape = shift_right.shape
+        # shift right
+        shift_right = tf.concat([shift_right[:, 1:, :, :, :], tf.zeros([s_shape[0], 1, s_shape[2], s_shape[3], s_shape[4]], dtype=tf.float32)], axis=1)
+
+        shift_left = tf.roll(folds[1], shift=-1, axis=1)
+        s_shape = shift_left.shape
+        shift_left = tf.concat([shift_left[:, :-1, :, :, :], tf.zeros([s_shape[0], 1, s_shape[2], s_shape[3], s_shape[4]], dtype=tf.float32)], axis=1)
+        print("shift right ", shift_right.shape)
+        print("shift left ", shift_left.shape)
+        shift_right = tf.concat([shift_right, shift_left], axis=4)
+        for i in range(self.fold_div - 2):
+            shift_right = tf.concat([shift_right, folds[i + 2]], axis=4)
+        return tf.reshape(shift_right, size)
+        '''print("shift right__", shift_right.shape)
+        print("shift right shape: ", shift_right)
+        print("num splits: ", self.fold_div)
+        splits = tf.split(x, self.fold_div, 4)
+        split0 = splits[0]
+        print("split 0 shape: ", split0.shape)
+        split1 = splits[1]
+        print("split 1 shape: ", split1.shape)
+
+        split0_slices = tf.split(split0, num_or_size_splits=split0.shape[1], axis=1)
+        print("split0 slices shape", split0_slices)
+        zfill0 = tf.zeros_like(split0_slices[0])
+        print("split0_slices[0]:", split0_slices[0])
+        print("split1 slices", split0_slices[:-1])
+        split0 = tf.concat([zfill0] + split0_slices[:-1], axis=1)
+        print("split 0 shape; ", split0.shape)
+        split1_slices = tf.split(split1, num_or_size_splits=split1.shape[1], axis=1)
+        print("split 1 shape [1]: ", split1.shape[1])
+        zfill1 = tf.zeros_like(split1_slices[0])
+        split1 = tf.concat(split1_slices[1:] + [zfill1], axis=1)
+        print("split1 : ", split1.shape)
+        out = tf.reshape(tf.concat([split0, split1] + splits[2:], axis=4), size)
+        print("out shape: ", out.shape)
+        return out'''
         #return tf.reshape(tf.roll(x, 1, 1), size)
         #return tf.concat((tf.roll(x[:,:,:,:,:size[3]//4], 1, 1), 
         #                    x[:,:,:,:,size[3]//4::]),4)
-        return tf.reshape(tf.concat((tf.roll(x[:,:,:,:,:size[3]//4], 1, 1), 
-                                     x[:,:,:,:,size[3]//4::]),4), size)
+        # return tf.reshape(tf.concat((tf.roll(x[:,:,:,:,:size[3]//4], 1, 1), 
+        #                             x[:,:,:,:,size[3]//4::]),4), size)
 
 if __name__ == '__main__':
     # test inplace shift v.s. vanilla shift

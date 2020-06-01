@@ -58,7 +58,9 @@ class ResNet(tf.keras.Model):
 
         # x = tf.reshape(x, size)
         x = self.layer1(x)
+        print("x before shape: ", x.shape)
         x = self.tsm1(x)
+        print("x after shape: ", x.shape)
         # x = tf.reshape(x, size)
         # print('post resize')
         x = self.layer2(x)

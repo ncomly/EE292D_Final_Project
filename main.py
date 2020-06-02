@@ -21,7 +21,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 from utils import *
-from model import *
+from tsm_model import *
 
 from PIL import Image
 
@@ -165,7 +165,7 @@ def run(args, use_gpu=True):
     val_list = []
     test_list = []
     for word in labels:
-        print(word)
+        # print(word)
         train_list.extend(glob.glob(args.dataset + word + '/train/*.tfrecords'))
         val_list.extend(glob.glob(args.dataset + word + '/val/*.tfrecords'))
         test_list.extend(glob.glob(args.dataset + word + '/test/*.tfrecords'))
@@ -179,7 +179,7 @@ def run(args, use_gpu=True):
         val_dataset = tf.data.TFRecordDataset(val_list)
     else:
         dataset = tf.data.TFRecordDataset(test_list)
-    print("raw_dataset: ", dataset)
+    # print("raw_dataset: ", dataset)
 
     if mode=="train":
         dataset = dataset.map(_parse_function)
@@ -221,6 +221,7 @@ def run(args, use_gpu=True):
            metrics=['accuracy', TopKCategoricalAccuracy(3),keras.metrics.CategoricalAccuracy() ]) 
 
     run_dir = args.save_path + datetime.now().strftime("%Y%m%d-%H%M%S")
+    print(run_dir, "_-----------------------------------------------")
     callbacks = [
         # Interrupt training if `val_loss` stops improving for over 2 epochs
   	# tf.keras.callbacks.EarlyStopping(patience=2, monitor='val_loss'),
@@ -246,7 +247,7 @@ def run(args, use_gpu=True):
         model.load_weights(args.checkpoint)
         #model = tf.keras.models.load_model(args.checkpoint)
     else:
-        print("Model training from scratch")
+        print("Model training from scratch -")
 
     if mode=="train":
         model.fit(dataset, epochs=args.epochs, callbacks=callbacks, validation_data=val_dataset)

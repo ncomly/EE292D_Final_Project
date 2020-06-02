@@ -19,7 +19,7 @@ class LipResBlock(tf.keras.Model):
         self.out_planes = out_planes
         self.use_tsm    = tsm
 
-        self.tsm   = TemporalShift()
+        self.tsm   = TemporalShift(Sequential(InputLayer(input_shape=(22,22,in_planes,)),name='s1'), 8,8,False)
 
         self.conv1 = Conv2D (mid_planes, kernel_size=1, use_bias=False, kernel_initializer=initializer)
         self.bn1   = BatchNormalization (momentum=0.1, epsilon=1e-5)
@@ -50,3 +50,7 @@ class LipResBlock(tf.keras.Model):
         out += self.shortcut(x)
         out = keras.activations.relu(out)
         return out
+
+
+    def set_tsm(t):
+        self.use_tsm = t

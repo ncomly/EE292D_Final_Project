@@ -144,11 +144,14 @@ class LipNext(tf.keras.Model):
         # depthwise conv3d
         #x = self.perm1(x)
         #print(x)
+        print(x.shape)
         x = self.DConv3D(x)
+        print(x.shape)
         #print(x)
         #x = self.perm2(x)
         x = self.pad1(x)
         x = self.front_conv3d(x)
+        print(x.shape)
         #print(f'post front {x.shape}')
         # 29, 22, 22, 64
         

@@ -34,7 +34,7 @@ np.random.seed(SEED)
 
 
 def lr_scheduler(epoch, lr):
-    sleep_epochs = 5
+    sleep_epochs = 10
     half = sleep_epochs 
     if epoch < sleep_epochs:
         learning_rate = lr
@@ -43,7 +43,7 @@ def lr_scheduler(epoch, lr):
     tf.summary.scalar('learning rate', data=learning_rate, step=epoch)
     return learning_rate
 
-def check_dataset(dataset, dir_name, img_type):
+def check_dataset(dataset, dir_name=None, img_type=None):
     for i,example in enumerate(dataset.take(1)):
         #print(example)
         image, label = example
@@ -51,12 +51,13 @@ def check_dataset(dataset, dir_name, img_type):
         #print("img: ", image.numpy())
         print("img label: ", label)
         image_shape = image.numpy().shape
-        for j in range(image_shape[-4]):
-            if img_type=='L':
-                img = Image.fromarray(image.numpy()[j,:,:,0], img_type)
-            else:
-                img = Image.fromarray(image.numpy()[j,:,:,:], img_type)
-            img.save(dir_name+'/test_img_'+str(j)+'.png')
+        if dir_name != None:
+            for j in range(image_shape[-4]):
+                if img_type=='L':
+                    img = Image.fromarray(image.numpy()[j,:,:,0], img_type)
+                else:
+                    img = Image.fromarray(image.numpy()[j,:,:,:], img_type)
+                img.save(dir_name+'/test_img_'+str(j)+'.png')
 
 def _parse_function(example):
     n_frames = 29
@@ -89,8 +90,8 @@ def _parse_function(example):
 #    image_seq = tf.reshape(image_seq, [1, n_frames, height, width])
     image_seq = tf.concat(image_seq, 0)
     label = features['label']
-    print("image: ", image_seq)
-    print("label: ", label)
+    # print("image: ", image_seq)
+    # print("label: ", label)
     return image_seq, label
 
 def video_left_right_flip(image):
@@ -128,7 +129,9 @@ def _normalize_function(image, label, n=130):
     image = (image - mean) * (1./std)
     f, h, w, = image.shape[:-1]
     image = tf.reshape(image[:,:,:,0], [f,h,w,1])
+    # print(f'label: {label}')
     y = tf.keras.backend.one_hot(label, n)
+    # print(f'one hot: {y}')
     return image, y
 
 def run(args, use_gpu=True):
@@ -139,10 +142,10 @@ def run(args, use_gpu=True):
         os.mkdir(save_path)
 
     model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
-    #model = tf.keras.Sequential([
+    # model = tf.keras.Sequential([
     #    tf.keras.layers.Flatten(),
     #    tf.keras.layers.Dense(args.nClasses)
-    #])
+    # ])
 
     if args.train==True:
         mode = "train"
@@ -185,16 +188,17 @@ def run(args, use_gpu=True):
         
         dataset = dataset.map(_train_preprocess_function)
         val_dataset = val_dataset.map(_test_preprocess_function)
-        #check_dataset(dataset, "train_test_images_processed", 'L')
         
         dataset = dataset.map(lambda x, y: _normalize_function(x, y, args.nClasses))
         val_dataset = val_dataset.map(lambda x, y: _normalize_function(x, y, args.nClasses))
     
         dataset = dataset.batch(args.batch_size, drop_remainder=True)
         val_dataset = val_dataset.batch(args.batch_size, drop_remainder=True)
+        # check_dataset(dataset)
 
         dataset = dataset.map(lambda x, y: (x[:,:,::2,::2,:], y))
         val_dataset = val_dataset.map(lambda x, y: (x[:,:,::2,::2,:], y))
+        # check_dataset(dataset)
 
 #        dataset = dataset.map(lambda x, y: ( tf.reshape(x, [-1, x.shape[2], x.shape[3], x.shape[4]]), y))
 #        val_dataset = val_dataset.map(lambda x, y: ( tf.reshape(x, [-1, x.shape[2], x.shape[3], x.shape[4]]), y))

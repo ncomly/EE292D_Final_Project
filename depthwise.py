@@ -3,11 +3,12 @@ import tensorflow as tf
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Conv2D, BatchNormalization, DepthwiseConv2D
 import keras
+from tsm improt TemporalShift
 #from keras.models import Sequential
 #from keras.layers import Conv2D, BatchNormalization, DepthwiseConv2D
 
 class LipResBlock(tf.keras.Model):
-    def __init__ (self, in_planes, out_planes, stride=1, reduction=1):
+    def __init__ (self, in_planes, out_planes, stride=1, reduction=1, tsm=False):
         super(LipResBlock, self).__init__()
 
         initializer = tf.initializers.VarianceScaling(scale=2.0) # added for initialization
@@ -16,6 +17,9 @@ class LipResBlock(tf.keras.Model):
         self.in_planes  = in_planes
         self.mid_planes = mid_planes = int(self.expansion * out_planes)
         self.out_planes = out_planes
+        self.use_tsm    = tsm
+
+        self.tsm   = TemporalShift()
 
         self.conv1 = Conv2D (mid_planes, kernel_size=1, use_bias=False, kernel_initializer=initializer)
         self.bn1   = BatchNormalization (momentum=0.1, epsilon=1e-5)
@@ -31,6 +35,8 @@ class LipResBlock(tf.keras.Model):
             self.shortcut = Conv2D(out_planes, kernel_size=1, strides=stride, use_bias=False, kernel_initializer=initializer)
 
     def call(self, x):
+        if self.use_tsm == True:
+            x = self.tsm(x)
         out = keras.activations.relu(self.bn1(self.conv1(x)))
 
         self.int_nchw = out.shape

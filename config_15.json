@@ -4,7 +4,7 @@
     "dataset": "/mnt/disks/data/dataset/lipread_tfrecords/",
     "labels": "label_15.txt",
     "lr": 0.0003,
-    "lr_sleep_epochs": 5,
+    "lr_sleep_epochs": 10,
     "batch_size": 12,
     "workers": 4,
     "epochs": 50,

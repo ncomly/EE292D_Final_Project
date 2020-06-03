@@ -21,7 +21,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 from utils import *
-from tsm_model import *
+from model import *
 
 from PIL import Image
 
@@ -33,8 +33,8 @@ tf.random.set_seed(SEED)
 np.random.seed(SEED)
 
 
-def lr_scheduler(epoch, lr):
-    sleep_epochs = 10
+def lr_scheduler(epoch, lr, sleep):
+    sleep_epochs = sleep 
     half = sleep_epochs 
     if epoch < sleep_epochs:
         learning_rate = lr
@@ -226,7 +226,7 @@ def run(args, use_gpu=True):
         # Interrupt training if `val_loss` stops improving for over 2 epochs
   	# tf.keras.callbacks.EarlyStopping(patience=2, monitor='val_loss'),
         # Learning rate scheduler
-        tf.keras.callbacks.LearningRateScheduler(lambda e: lr_scheduler(e, args.lr)),
+        tf.keras.callbacks.LearningRateScheduler(lambda e: lr_scheduler(e, args.lr, args.lr_sleep_epochs)),
         # Save checkpoints
         tf.keras.callbacks.ModelCheckpoint(
             filepath=run_dir+'/runs/{epoch}/checkpoint', 

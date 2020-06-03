@@ -18,6 +18,8 @@ class LipResBlock(tf.keras.Model):
         self.mid_planes = mid_planes = int(self.expansion * out_planes)
         self.out_planes = out_planes
         self.use_tsm    = tsm
+        if self.use_tsm:
+            print('Using TSM')
 
         self.tsm   = TemporalShift(Sequential(InputLayer(input_shape=(22,22,in_planes,)),name='s1'), 8,8,False)
 

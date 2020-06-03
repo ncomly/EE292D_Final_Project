@@ -14,7 +14,7 @@ from tsm import TemporalShift
 
 def LipRes(alpha=2, reduction=1, num_classes=256):
     block = lambda in_planes, planes, stride: \
-        LipResBlock(in_planes, planes, stride, reduction=reduction)
+        LipResBlock(in_planes, planes, stride, reduction=reduction, tsm=True)
 
     return ResNet(block, [alpha, alpha, alpha, alpha], reduction, num_classes) # TODO tunable alpha param + # alpha blocks
 

@@ -21,7 +21,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 from utils import *
-from model import *
+from tsm_model import *
 
 from PIL import Image
 

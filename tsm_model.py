@@ -12,14 +12,14 @@ from tensorflow.keras.models import Model
 from DepthwiseConv3D import DepthwiseConv3D
 from tsm import TemporalShift
 
-def LipRes(alpha=2, reduction=1, num_classes=256):
-    block = lambda in_planes, planes, stride: \
-        LipResBlock(in_planes, planes, stride, reduction=reduction, tsm=True)
+def LipRes(alpha=2, reduction=1, num_classes=256, tsm=[False, False, False, False]):
+    block = lambda in_planes, planes, stride, _tsm: \
+        LipResBlock(in_planes, planes, stride, reduction=reduction, tsm=_tsm)
 
-    return ResNet(block, [alpha, alpha, alpha, alpha], reduction, num_classes) # TODO tunable alpha param + # alpha blocks
+    return ResNet(block, [alpha, alpha, alpha, alpha], reduction, num_classes, tsm) # TODO tunable alpha param + # alpha blocks
 
 class ResNet(tf.keras.Model):
-    def __init__(self, block, num_blocks, reduction=1, num_classes=256):
+    def __init__(self, block, num_blocks, reduction=1, num_classes=256, tsm=[False, False, False, False]):
         super(ResNet, self).__init__()
 
         self.reduction = float(reduction) ** 0.5
@@ -32,22 +32,22 @@ class ResNet(tf.keras.Model):
         # self.layer2   = self._make_layer(block, 32, num_blocks[1], stride=2)
         # self.layer3   = self._make_layer(block, 64, num_blocks[2], stride=2)
         # self.layer4   = self._make_layer(block, 128, num_blocks[3], stride=2)
-        self.layer1   = self._make_layer(block, self.in_planes, num_blocks[0], stride=1)
-        self.layer2   = self._make_layer(block, 128, num_blocks[1], stride=2)
-        self.layer3   = self._make_layer(block, 256, num_blocks[2], stride=2)
-        self.layer4   = self._make_layer(block, 512, num_blocks[3], stride=2)
+        self.layer1   = self._make_layer(block, self.in_planes, num_blocks[0], stride=1, tsm=tsm[0])
+        self.layer2   = self._make_layer(block, 128, num_blocks[1], stride=2, tsm=tsm[1])
+        self.layer3   = self._make_layer(block, 256, num_blocks[2], stride=2, tsm=tsm[2])
+        self.layer4   = self._make_layer(block, 512, num_blocks[3], stride=2, tsm=tsm[3])
         # self.tsm2     = TemporalShift(Sequential(InputLayer(input_shape=(22,22,256,)),name='s2'), 8,8,False)
         self.flatten  = Flatten()
         self.fc       = Dense(num_classes)
         self.bnfc     = BatchNormalization(momentum=0.1, epsilon=1e-5)
         self.avgpool = AveragePooling2D()
 
-    def _make_layer(self, block, planes, num_blocks, stride):
+    def _make_layer(self, block, planes, num_blocks, stride, tsm=False):
         strides = [stride] + [1]*(num_blocks-1)
         layers = []
         planes = int(planes)
         for stride in strides:
-            layers.append(block(self.in_planes, planes, stride))
+            layers.append(block(self.in_planes, planes, stride, _tsm=tsm))
             self.in_planes = planes
         return Sequential(layers,name='s'+str(planes))
 
@@ -123,7 +123,7 @@ class LipNext(tf.keras.Model):
 
 
 
-        self.resnet34 = LipRes(self.alpha)
+        self.resnet34 = LipRes(self.alpha, tsm=[False, False, True, True])
         # backend
         self.backend_conv1 = Sequential ( [  
                 Conv1D(2*self.inputDim, kernel_size=5, strides=2, use_bias=False, kernel_initializer=initializer),

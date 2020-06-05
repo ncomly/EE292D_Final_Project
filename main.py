@@ -32,6 +32,16 @@ SEED = 1
 tf.random.set_seed(SEED)
 np.random.seed(SEED)
 
+#label_mapping = {0:0, 4:1, 7:2, 12:3, 15:4, 19:5, 24:6, 29:7, 33:8, 37:9, 41:10, 44:11, 47:12, 50:13, 53:14}
+label_mapping = tf.lookup.StaticHashTable(
+                initializer=tf.lookup.KeyValueTensorInitializer(
+                    keys=tf.constant([0, 4, 7, 12, 15, 19, 24, 29, 33, 37, 41, 44, 47, 50, 53], dtype='int64'),
+                    values=tf.constant(list(range(15)), dtype='int32'),),
+                default_value=tf.constant(-1),
+                name="class_weight"
+                    )
+                    
+
 
 def lr_scheduler(epoch, lr, sleep):
     sleep_epochs = sleep 
@@ -92,7 +102,7 @@ def _parse_function(example):
     label = features['label']
     # print("image: ", image_seq)
     # print("label: ", label)
-    return image_seq, label
+    return image_seq, label_mapping.lookup(label)
 
 def video_left_right_flip(image):
     image_seq = tf.unstack(image)
@@ -129,10 +139,11 @@ def _normalize_function(image, label, n=130):
     image = (image - mean) * (1./std)
     f, h, w, = image.shape[:-1]
     image = tf.reshape(image[:,:,:,0], [f,h,w,1])
-    # print(f'label: {label}')
+    #print(f'label: {label}')
     y = tf.keras.backend.one_hot(label, n)
-    # print(f'one hot: {y}')
+    #print(f'one hot: {y}')
     return image, y
+
 
 def run(args, use_gpu=True):
     
@@ -142,7 +153,7 @@ def run(args, use_gpu=True):
         os.mkdir(save_path)
 
     model = lipnext(inputDim=256, hiddenDim=512, nClasses=args.nClasses, frameLen=29, alpha=args.alpha)
-    # model = tf.keras.Sequential([
+    #model = tf.keras.Sequential([
     #    tf.keras.layers.Flatten(),
     #    tf.keras.layers.Dense(args.nClasses)
     # ])
@@ -178,7 +189,7 @@ def run(args, use_gpu=True):
         dataset = tf.data.TFRecordDataset(train_list)
         val_dataset = tf.data.TFRecordDataset(val_list)
     else:
-        dataset = tf.data.TFRecordDataset(test_list)
+        dataset = tf.data.TFRecordDataset(test_list) #test_list)
     # print("raw_dataset: ", dataset)
 
     if mode=="train":
@@ -211,7 +222,7 @@ def run(args, use_gpu=True):
         
         dataset = dataset.map(lambda x, y: _normalize_function(x,y, args.nClasses))
         
-        dataset = dataset.batch(args.batch_size, drop_remainder=True)
+        dataset = dataset.batch(1, drop_remainder=True)
 
         dataset = dataset.map(lambda x, y: (x[:,:,::2,::2,:], y))
  
@@ -244,16 +255,55 @@ def run(args, use_gpu=True):
     if args.checkpoint:
         print("Loading model from: ", args.checkpoint)
         #model.load_weights(args.checkpoint)
-        model.load_weights(args.checkpoint)
+        status = model.load_weights(args.checkpoint).expect_partial()
+        print(f'STATUS: {status.assert_existing_objects_matched()}')
+
         #model = tf.keras.models.load_model(args.checkpoint)
     else:
         print("Model training from scratch -")
 
+    def rep_dataset():
+        for i in range(10):
+            image = next(iter(dataset))
+            yield [image[0]]
+        #return [dataset.__iter__().next()[0]]
+
+    print(f' REP DATASET: {rep_dataset()}')
+
+
     if mode=="train":
+        #model.evaluate(val_dataset)
         model.fit(dataset, epochs=args.epochs, callbacks=callbacks, validation_data=val_dataset)
+        #assert False
+        '''model.fit(dataset, epochs=1, callbacks=callbacks, steps_per_epoch=1)
+        #model.save('../saved_model')
+        #tf.keras.models.save_model(model, '../saved_model')
         #model.save_weights(args.save_path +'/final_weights/Conv3D_model')
+        # Convert the model.
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        # This ensures that if any ops can't be quantized, the converter throws an error
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+        # These set the input and output tensors to uint8
+        converter.inference_input_type = tf.float32 # uint8
+        converter.inference_output_type = tf.uint8 # uint8
+        # And this sets the representative dataset so we can quantize the activations
+        converter.representative_dataset = rep_dataset
+        print('\n\nstarting conversion\n\n')
+        tflite_model = converter.convert()
+
+        print('\n\nmodel converted\n\n')
+
+        # Save the TF Lite model.
+        with tf.io.gfile.GFile('model_quantized_float.tflite', 'wb') as f:
+              f.write(tflite_model)'''
     else: 
         model.evaluate(dataset)
+        #print(dset[0])
+        #print(f'prediction: {model.predict(dset[0])}')
+        #print(f'actual: {dset[1]}')
+        #status.assert_consumed()
+        #model._set_inputs(dataset.__iter__().next())
     
 
 def main():

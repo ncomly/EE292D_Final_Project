@@ -59,12 +59,12 @@ class ResNet(tf.keras.Model):
         # x = tf.reshape(x, size)
         x = self.layer1(x)
         # print("x before shape: ", x.shape)
-        x = self.tsm1(x)
+        #x = self.tsm1(x)
         # print("x after shape: ", x.shape)
         # x = tf.reshape(x, size)
         # print('post resize')
         x = self.layer2(x)
-        x = self.tsm2(x)
+        #x = self.tsm2(x)
         x = self.layer3(x)
         x = self.layer4(x)
 
@@ -145,6 +145,8 @@ class LipNext(tf.keras.Model):
         # self._initialize_weights()
 
     def call(self, x):
+        #return tf.random.uniform((x.shape[0], 15))
+        #print(x.shape)
         # x = self.input_layer(x)
         # Shape: None, 29, 88, 88, 1
         # rehshape & perm
@@ -162,7 +164,7 @@ class LipNext(tf.keras.Model):
         # print(f'input shape: {x.shape}') 
         x = tf.reshape(x, [-1,  x.shape[2], x.shape[3], x.shape[4]])
         # Shape: None, 88, 88, 1
-        # print(f'reshape: {x.shape}') 
+        #print(f'reshape: {x.shape}') 
         x = self.resnet34(x)
         # Shape: None, 256
         
@@ -178,7 +180,7 @@ class LipNext(tf.keras.Model):
         
         x = self.backend_conv2(x)
         # Shape: None, nClasses
-
+        
         return x
 
     def _initialize_weights(self):
